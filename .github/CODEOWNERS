@@ -1,0 +1,22 @@
+# Code Owners Configuration [P4]
+
+# Default fallback owner
+* @admin
+
+# Frontend ownership [P1]
+/frontend/ @frontend-team
+
+# Backend & API ownership [P2]
+/backend/ @backend-team
+/docs/API.md @backend-team
+/docs/postman.json @backend-team
+
+# Database ownership [P3]
+/database/ @database-team
+/docs/ER_DIAGRAM.md @database-team
+
+# DevOps & Documentation ownership [P4]
+/.github/ @devops-lead
+/docs/ @tech-writers
+/GEMINI.md @architect
+/README.md @architect
