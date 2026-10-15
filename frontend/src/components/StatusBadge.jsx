@@ -1,21 +1,9 @@
 import React from 'react';
 
-// Application Status Badge Component [P1]
-export default function StatusBadge({ status }) {
-  const getBadgeClass = () => {
-    switch (status) {
-      case 'offered':
-      case 'accepted':
-        return 'badge-success';
-      case 'in_interview':
-      case 'shortlisted':
-        return 'badge-warning';
-      case 'rejected':
-        return 'badge-danger';
-      default:
-        return 'badge-default';
-    }
-  };
-
-  return <span className={`status-badge ${getBadgeClass()}`}>{status || 'applied'}</span>;
+export default function StatusBadge({ text }) {
+  return (
+    <span style={{ padding: '4px 10px', borderRadius: '999px', fontSize: '0.75rem', fontWeight: '600', background: '#dcfce7', color: '#16a34a' }}>
+      {text || 'Active'}
+    </span>
+  );
 }

@@ -1,19 +1,20 @@
 import React from 'react';
 
-// Eligibility Status Badge Component [P1]
-export default function EligibilityBadge({ isEligible, reasons = [] }) {
+export default function EligibilityBadge({ status }) {
+  const getStyle = () => {
+    switch (status?.toLowerCase()) {
+      case 'eligible':
+        return { background: '#dcfce7', color: '#16a34a' };
+      case 'pending':
+        return { background: '#fef9c3', color: '#ca8a04' };
+      default:
+        return { background: '#fee2e2', color: '#dc2626' };
+    }
+  };
+
   return (
-    <div className="eligibility-container">
-      <span className={`eligibility-badge ${isEligible ? 'eligible' : 'ineligible'}`}>
-        {isEligible ? 'Eligible' : 'Not Eligible'}
-      </span>
-      {!isEligible && reasons.length > 0 && (
-        <ul className="ineligible-reasons">
-          {reasons.map((reason, index) => (
-            <li key={index}>{reason}</li>
-          ))}
-        </ul>
-      )}
-    </div>
+    <span style={{ padding: '4px 10px', borderRadius: '999px', fontSize: '0.75rem', fontWeight: '600', ...getStyle() }}>
+      {status || 'Unknown'}
+    </span>
   );
 }

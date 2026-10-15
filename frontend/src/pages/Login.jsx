@@ -1,42 +1,34 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 
-// Login Page [P1]
 export default function Login() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [role, setRole] = useState('student');
   const { login } = useAuth();
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    // Scaffolding: Trigger auth API call and store JWT
+    login({ role });
   };
 
   return (
-    <div className="login-page">
-      <div className="login-card">
-        <h2>Sign In</h2>
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#f8fafc' }}>
+      <div style={{ background: 'white', padding: '2.5rem', borderRadius: '8px', border: '1px solid #e2e8f0', width: '100%', maxWidth: '380px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
+        <h2 style={{ marginBottom: '1.5rem', textAlign: 'center', color: '#1e293b' }}>Portal Login</h2>
         <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label>Email Address</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="user@campus.edu"
-              required
-            />
+          <div style={{ marginBottom: '1.25rem' }}>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500', fontSize: '0.9rem' }}>Select Role</label>
+            <select 
+              value={role} 
+              onChange={(e) => setRole(e.target.value)}
+              style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.95rem' }}
+            >
+              <option value="student">Student</option>
+              <option value="officer">Placement Officer</option>
+            </select>
           </div>
-          <div className="form-group">
-            <label>Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </div>
-          <button type="submit" className="btn-primary">Sign In</button>
+          <button type="submit" style={{ width: '100%', padding: '0.7rem', background: '#2563eb', color: 'white', border: 'none', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' }}>
+            Login
+          </button>
         </form>
       </div>
     </div>
