@@ -1,30 +1,91 @@
-import React from 'react';
+// Student Dashboard  [P1]
+// Shows summary stats from API calls — no hardcoded numbers.
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+import PageHeader from '../../components/PageHeader';
+import Button from '../../components/Button';
+import ErrorState from '../../components/ErrorState';
+import { StatsSkeleton } from '../../components/Skeleton';
+import { fetchAllDrives } from '../../api/drives';
+import { fetchMyApplications } from '../../api/applications';
 
-export default function Dashboard() {
+function useStudentStats() {
+  const [drives, setDrives] = useState(null);
+  const [applications, setApplications] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [d, a] = await Promise.all([fetchAllDrives(), fetchMyApplications()]);
+      setDrives(d?.data || d || []);
+      setApplications(a?.data || a || []);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, []);
+  return { drives, applications, loading, error, retry: load };
+}
+
+export default function StudentDashboard() {
+  const { profile } = useAuth();
+  const navigate = useNavigate();
+  const { drives, applications, loading, error, retry } = useStudentStats();
+
+  const firstName = profile?.name?.split(' ')[0] || null;
+
+  const totalDrives     = drives?.length ?? 0;
+  const eligibleDrives  = drives?.filter(d => d.isEligible)?.length ?? 0;
+  const totalApplied    = applications?.length ?? 0;
+  const activeApps      = applications?.filter(a => !['SELECTED','REJECTED','WITHDRAWN'].includes(a.status))?.length ?? 0;
+
   return (
     <div>
-      <h1 style={{ fontSize: '1.75rem', fontWeight: 'bold', marginBottom: '1.5rem' }}>Dashboard</h1>
-      
-      <div className="hero-banner">
-        <div style={{ fontSize: '0.75rem', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '0.5rem', opacity: 0.9 }}>
-          Your Career Journey Starts Here
-        </div>
-        <h1>Build your future. Discover your next opportunity.</h1>
-        <p>Explore job opportunities matched to your academic profile.</p>
-        <button className="banner-btn">Explore Job Drives &rarr;</button>
-      </div>
+      <PageHeader
+        title={firstName ? `Welcome back, ${firstName}` : 'Dashboard'}
+        description="Track your placement journey and discover new opportunities."
+        actions={
+          <Button variant="primary" onClick={() => navigate('/drives')}>
+            Browse drives
+          </Button>
+        }
+      />
 
-      {/* Stats Cards Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1.5rem' }}>
-        <div style={{ background: 'white', padding: '1.5rem', borderRadius: '0.75rem', border: '1px solid #e2e8f0' }}>
-          <h4 style={{ color: '#64748b', fontSize: '0.875rem', fontWeight: '500' }}>Total Job Drives</h4>
-          <div style={{ fontSize: '2rem', fontWeight: 'bold', marginTop: '0.5rem' }}>6</div>
+      {loading && <StatsSkeleton count={4} />}
+
+      {!loading && error && <ErrorState message={error} onRetry={retry} />}
+
+      {!loading && !error && (
+        <div className="stats-grid">
+          <div className="stat-card">
+            <div className="stat-label">Active Drives</div>
+            <div className="stat-value">{totalDrives}</div>
+            <div className="stat-sub">Open for application</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-label">Eligible For</div>
+            <div className="stat-value">{eligibleDrives}</div>
+            <div className="stat-sub">Based on your profile</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-label">Total Applied</div>
+            <div className="stat-value">{totalApplied}</div>
+            <div className="stat-sub">All-time applications</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-label">In Progress</div>
+            <div className="stat-value">{activeApps}</div>
+            <div className="stat-sub">Awaiting outcome</div>
+          </div>
         </div>
-        <div style={{ background: 'white', padding: '1.5rem', borderRadius: '0.75rem', border: '1px solid #e2e8f0' }}>
-          <h4 style={{ color: '#64748b', fontSize: '0.875rem', fontWeight: '500' }}>Eligible Opportunities</h4>
-          <div style={{ fontSize: '2rem', fontWeight: 'bold', marginTop: '0.5rem', color: '#16a34a' }}>6</div>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

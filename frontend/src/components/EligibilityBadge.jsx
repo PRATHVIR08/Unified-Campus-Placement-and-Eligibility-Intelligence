@@ -1,20 +1,11 @@
+// EligibilityBadge component  [P1]
+// Uses the shared Badge component — no color, shape/fill distinguishes eligibility.
 import React from 'react';
+import Badge from './Badge';
 
+/**
+ * @param {string} status  - 'eligible', 'not eligible', 'pending', etc.
+ */
 export default function EligibilityBadge({ status }) {
-  const getStyle = () => {
-    switch (status?.toLowerCase()) {
-      case 'eligible':
-        return { background: '#dcfce7', color: '#16a34a' };
-      case 'pending':
-        return { background: '#fef9c3', color: '#ca8a04' };
-      default:
-        return { background: '#fee2e2', color: '#dc2626' };
-    }
-  };
-
-  return (
-    <span style={{ padding: '4px 10px', borderRadius: '999px', fontSize: '0.75rem', fontWeight: '600', ...getStyle() }}>
-      {status || 'Unknown'}
-    </span>
-  );
+  return <Badge status={status || 'Unknown'} />;
 }

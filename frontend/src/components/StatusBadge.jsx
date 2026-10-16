@@ -1,9 +1,11 @@
+// StatusBadge component  [P1]
+// Uses the shared Badge component — no color, shape/fill distinguishes status.
 import React from 'react';
+import Badge from './Badge';
 
-export default function StatusBadge({ text }) {
-  return (
-    <span style={{ padding: '4px 10px', borderRadius: '999px', fontSize: '0.75rem', fontWeight: '600', background: '#dcfce7', color: '#16a34a' }}>
-      {text || 'Active'}
-    </span>
-  );
+/**
+ * @param {string} status  - application/interview/offer status string
+ */
+export default function StatusBadge({ status }) {
+  return <Badge status={status || 'Unknown'} />;
 }

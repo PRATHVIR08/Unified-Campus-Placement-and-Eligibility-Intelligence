@@ -1,0 +1,97 @@
+/* ============================================================
+   DESIGN SYSTEM TOKENS  [P1]
+   Campus Placement & Eligibility Intelligence
+   Dark monochrome theme — black, white, and grays only.
+   ============================================================ */
+
+:root {
+  /* ---- Backgrounds ---- */
+  --color-bg:          #000000;
+  --color-surface:     #0a0a0a;
+  --color-elevated:    #111111;
+  --color-elevated-2:  #1a1a1a;
+
+  /* ---- Borders ---- */
+  --color-border:      #262626;
+  --color-border-hover:#404040;
+  --color-border-focus:#737373;
+
+  /* ---- Text ---- */
+  --color-text-primary:   #ffffff;
+  --color-text-secondary: #a3a3a3;
+  --color-text-muted:     #737373;
+  --color-text-disabled:  #404040;
+
+  /* ---- Interactive ---- */
+  --color-btn-primary-bg:   #ffffff;
+  --color-btn-primary-text: #000000;
+  --color-btn-secondary-bg: transparent;
+  --color-btn-secondary-text: #ffffff;
+  --color-btn-secondary-border: #262626;
+
+  /* ---- Status badges (no color — shape & fill distinguishes) ----
+     filled-white  = positive / final  (SELECTED, OFFER_ACCEPTED, ELIGIBLE)
+     outlined      = pending / in-progress (APPLIED, SHORTLISTED, PENDING)
+     dimmed        = negative / withdrawn (REJECTED, WITHDRAWN, NOT_ELIGIBLE)
+  */
+  --badge-positive-bg:    #ffffff;
+  --badge-positive-text:  #000000;
+  --badge-positive-border:#ffffff;
+
+  --badge-pending-bg:     transparent;
+  --badge-pending-text:   #ffffff;
+  --badge-pending-border: #ffffff;
+
+  --badge-negative-bg:    transparent;
+  --badge-negative-text:  #737373;
+  --badge-negative-border:#404040;
+
+  /* ---- Spacing scale (px) ---- */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+
+  /* ---- Border radii ---- */
+  --radius-card:  12px;
+  --radius-input:  8px;
+  --radius-btn:    8px;
+  --radius-badge: 99px;
+
+  /* ---- Typography ---- */
+  --font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-size-xs:  11px;
+  --font-size-sm:  13px;
+  --font-size-base: 14px;
+  --font-size-md:  15px;
+  --font-size-lg:  18px;
+  --font-size-xl:  22px;
+  --font-size-2xl: 28px;
+  --font-size-3xl: 36px;
+
+  --font-weight-normal:    400;
+  --font-weight-medium:    500;
+  --font-weight-semibold:  600;
+  --font-weight-bold:      700;
+
+  --letter-spacing-heading: -0.03em;
+  --letter-spacing-label:    0.04em;
+
+  /* ---- Motion ---- */
+  --transition-fast: 150ms ease;
+
+  /* ---- Layout ---- */
+  --sidebar-width: 240px;
+  --content-max-width: 1100px;
+  --topbar-height: 56px;
+}
+
+/* Respect prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --transition-fast: 0ms;
+  }
+}

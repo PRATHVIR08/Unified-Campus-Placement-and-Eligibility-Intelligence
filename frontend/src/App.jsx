@@ -1,58 +1,71 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, NavLink, Navigate } from 'react-router-dom';
+// App.jsx  [P1]
+// Root router — keeps all existing route paths intact.
+import React, { useState } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import Login from './pages/Login';
-import StudentDashboard from './pages/student/StudentDashboard';
-import DriveList from './pages/student/DriveList';
-import MyApplications from './pages/student/MyApplications';
-import Profile from './pages/student/Profile';
+import { ToastProvider } from './components/Toast';
+import Spinner from './components/Spinner';
+import Sidebar from './components/Sidebar';
 
-function SidebarLayout() {
-  const { logout } = useAuth();
+// Pages — student
+import Login          from './pages/Login';
+import StudentDashboard from './pages/student/StudentDashboard';
+import DriveList      from './pages/student/DriveList';
+import DriveDetails   from './pages/student/DriveDetails';
+import MyApplications from './pages/student/MyApplications';
+import Profile        from './pages/student/Profile';
+
+// Pages — officer
+import OfficerDashboard from './pages/officer/OfficerDashboard';
+import Companies        from './pages/officer/Companies';
+import DriveManage      from './pages/officer/DriveManage';
+
+/* ---- Authenticated app layout ----------------------------------- */
+function AuthenticatedLayout() {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { role } = useAuth();
+
+  const isOfficer = role === 'officer' || role === 'admin';
 
   return (
     <div className="app-layout">
-      {/* Sidebar Navigation */}
-      <aside className="sidebar">
-        <div className="sidebar-brand">CampusConnect</div>
-        <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b', marginBottom: '0.75rem', letterSpacing: '0.05em' }}>
-          Workspace
-        </div>
-        <ul className="sidebar-menu">
-          <li><NavLink to="/" end>Dashboard</NavLink></li>
-          <li><NavLink to="/drives">Job Drives</NavLink></li>
-          <li><NavLink to="/applications">My Applications</NavLink></li>
-          <li><NavLink to="/profile">My Profile</NavLink></li>
-        </ul>
-        <div style={{ marginTop: 'auto' }}>
-          <button 
-            onClick={logout} 
-            style={{ width: '100%', padding: '0.6rem', background: '#dc2626', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: '500' }}
-          >
-            Logout
-          </button>
-        </div>
-      </aside>
+      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      {/* Main Content Area */}
       <div className="main-content">
-        <header className="topbar">
-          <span style={{ fontSize: '0.875rem', color: '#64748b' }}>Workspace / Navigation</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <span style={{ fontSize: '0.875rem', fontWeight: '500' }}>Academic Year 2026-27</span>
-            <span style={{ background: '#f1f5f9', padding: '0.3rem 0.75rem', borderRadius: '999px', fontSize: '0.85rem', fontWeight: '600' }}>
-              Student
-            </span>
-          </div>
-        </header>
+        {/* Mobile top bar */}
+        <div className="mobile-topbar">
+          <button
+            type="button"
+            className="btn btn-ghost btn-icon"
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Open navigation menu"
+            aria-expanded={sidebarOpen}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="6"  x2="21" y2="6"  />
+              <line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+          </button>
+          <span className="mobile-topbar-title">Campus Placement</span>
+        </div>
 
         <div className="content-body">
           <Routes>
-            <Route path="/" element={<StudentDashboard />} />
-            <Route path="/drives" element={<DriveList />} />
-            <Route path="/applications" element={<MyApplications />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="*" element={<Navigate to="/" />} />
+            {/* Student routes */}
+            <Route path="/"            element={<StudentDashboard />} />
+            <Route path="/drives"      element={<DriveList />} />
+            <Route path="/drives/:id"  element={<DriveDetails />} />
+            <Route path="/applications"element={<MyApplications />} />
+            <Route path="/profile"     element={<Profile />} />
+
+            {/* Officer routes */}
+            <Route path="/officer"                 element={<OfficerDashboard />} />
+            <Route path="/officer/companies"        element={<Companies />} />
+            <Route path="/officer/drives"           element={<DriveManage />} />
+
+            {/* Fallback */}
+            <Route path="*" element={<Navigate to={isOfficer ? '/officer' : '/'} replace />} />
           </Routes>
         </div>
       </div>
@@ -60,18 +73,38 @@ function SidebarLayout() {
   );
 }
 
+/* ---- Root app with auth gate ------------------------------------ */
 function AppContent() {
-  const { user } = useAuth();
-  if (!user) return <Login />;
-  return <SidebarLayout />;
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="spinner-center" style={{ height: '100vh' }}>
+        <Spinner size="lg" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="*"      element={<Navigate to="/login" replace />} />
+      </Routes>
+    );
+  }
+
+  return <AuthenticatedLayout />;
 }
 
 export default function App() {
   return (
     <AuthProvider>
-      <Router>
-        <AppContent />
-      </Router>
+      <ToastProvider>
+        <Router>
+          <AppContent />
+        </Router>
+      </ToastProvider>
     </AuthProvider>
   );
 }

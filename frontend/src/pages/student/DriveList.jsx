@@ -1,154 +1,282 @@
-import React, { useState } from 'react';
+// Drive List page — Student  [P1]
+// Loads drives from API and provides a filter panel (collapsible on mobile).
+// No hardcoded drive data.
+import React, { useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import PageHeader from '../../components/PageHeader';
+import Button from '../../components/Button';
+import Badge from '../../components/Badge';
+import EmptyState from '../../components/EmptyState';
+import ErrorState from '../../components/ErrorState';
+import { TableSkeleton } from '../../components/Skeleton';
+import Input from '../../components/Input';
+import { fetchAllDrives } from '../../api/drives';
 
-export default function DriveList() {
-  const [searchTerm, setSearchTerm] = useState('');
-  
-  const drives = [
-    {
-      id: 1,
-      company: 'Infosys',
-      role: 'Systems Engineer',
-      package: '₹3.6 LPA',
-      minCgpa: '6',
-      backlogs: 'None',
-      deadline: '2026-11-15',
-      departments: 'CSE, ISE, IT, ECE',
-      eligible: true,
-      initial: 'I',
-      logoBg: '#dbeafe',
-      logoColor: '#1d4ed8'
-    },
-    {
-      id: 2,
-      company: 'TCS',
-      role: 'Assistant System Engineer',
-      package: '₹3.8 LPA',
-      minCgpa: '6',
-      backlogs: 'None',
-      deadline: '2026-11-20',
-      departments: 'CSE, ISE, IT, ECE, EEE',
-      eligible: true,
-      initial: 'T',
-      logoBg: '#fef3c7',
-      logoColor: '#b45309'
-    },
-    {
-      id: 3,
-      company: 'Wipro',
-      role: 'Project Engineer',
-      package: '₹3.5 LPA',
-      minCgpa: '6.5',
-      backlogs: 'None',
-      deadline: '2026-11-25',
-      departments: 'CSE, ISE, IT',
-      eligible: true,
-      initial: 'W',
-      logoBg: '#e0e7ff',
-      logoColor: '#4338ca'
-    },
-    {
-      id: 4,
-      company: 'Accenture',
-      role: 'Associate Software Engineer',
-      package: '₹4.5 LPA',
-      minCgpa: '7',
-      backlogs: 'None',
-      deadline: '2026-11-30',
-      departments: 'CSE, ISE',
-      eligible: false,
-      initial: 'A',
-      logoBg: '#fce7f3',
-      logoColor: '#be185d'
+/* ---- Filter panel ----------------------------------------------- */
+function FilterPanel({ filters, onChange, onApply, onReset }) {
+  const [skillInput, setSkillInput] = useState('');
+
+  function addSkill(e) {
+    if ((e.key === 'Enter' || e.key === ',') && skillInput.trim()) {
+      e.preventDefault();
+      const val = skillInput.trim();
+      if (!filters.skills.includes(val)) {
+        onChange({ ...filters, skills: [...filters.skills, val] });
+      }
+      setSkillInput('');
     }
-  ];
+  }
 
-  const filteredDrives = drives.filter(d => 
-    d.company.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    d.role.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  function removeSkill(skill) {
+    onChange({ ...filters, skills: filters.skills.filter(s => s !== skill) });
+  }
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-      {/* Unique Drive List Header */}
-      <div style={{ background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)', padding: '2rem', borderRadius: '12px', color: 'white', marginBottom: '2rem' }}>
-        <h1 style={{ fontSize: '1.8rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>Campus Placement Drives</h1>
-        <p style={{ color: '#94a3b8', fontSize: '0.95rem', marginBottom: '1.5rem' }}>
-          Explore all active company recruitment drives, review eligibility requirements, and submit applications.
-        </p>
-        
-        {/* Search Input inside Banner */}
-        <div style={{ maxWidth: '400px' }}>
-          <input 
-            type="text" 
-            placeholder="Search by company or role..." 
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '8px', border: 'none', outline: 'none', fontSize: '0.9rem' }}
-          />
-        </div>
+    <div className="filter-panel">
+      <p style={{ fontSize: 'var(--font-size-sm)', fontWeight: 'var(--font-weight-semibold)', color: 'var(--color-text-primary)', marginBottom: 'var(--space-2)' }}>
+        Filters
+      </p>
+
+      <Input
+        label="Role keywords"
+        value={filters.keyword}
+        onChange={e => onChange({ ...filters, keyword: e.target.value })}
+        placeholder="e.g. Engineer, Analyst"
+      />
+
+      <div className="field">
+        <label className="field-label">Skills (press Enter to add)</label>
+        <input
+          className="input"
+          value={skillInput}
+          onChange={e => setSkillInput(e.target.value)}
+          onKeyDown={addSkill}
+          placeholder="e.g. Python, React…"
+        />
+        {filters.skills.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
+            {filters.skills.map(s => (
+              <span key={s} className="chip">
+                {s}
+                <button type="button" onClick={() => removeSkill(s)} aria-label={`Remove skill ${s}`}>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Drives Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
-        {filteredDrives.map((drive) => (
-          <div key={drive.id} style={{ background: 'white', padding: '1.5rem', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                <div style={{ width: '40px', height: '40px', borderRadius: '8px', background: drive.logoBg, color: drive.logoColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '1.1rem' }}>
-                  {drive.initial}
-                </div>
-                <span style={{ background: drive.eligible ? '#dcfce7' : '#fee2e2', color: drive.eligible ? '#166534' : '#991b1b', padding: '0.25rem 0.75rem', borderRadius: '999px', fontSize: '0.75rem', fontWeight: '600' }}>
-                  {drive.eligible ? '✓ Eligible' : '✕ Not Eligible'}
-                </span>
-              </div>
+      <Input
+        label="Min. package (LPA)"
+        type="number"
+        min="0"
+        step="0.1"
+        value={filters.minPackage}
+        onChange={e => onChange({ ...filters, minPackage: e.target.value })}
+        placeholder="e.g. 5"
+      />
 
-              <h3 style={{ fontSize: '1.2rem', color: '#0f172a', fontWeight: '700' }}>{drive.company}</h3>
-              <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '1rem' }}>{drive.role}</p>
+      <Input
+        label="Location"
+        value={filters.location}
+        onChange={e => onChange({ ...filters, location: e.target.value })}
+        placeholder="e.g. Bengaluru"
+      />
 
-              <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '8px', marginBottom: '1rem' }}>
-                <div style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', fontWeight: '600' }}>Annual Package</div>
-                <div style={{ fontSize: '1.4rem', fontWeight: 'bold', color: '#0f172a', marginTop: '0.2rem' }}>{drive.package}</div>
-              </div>
+      <label className="toggle">
+        <div
+          className={`toggle-track${filters.eligibleOnly ? ' on' : ''}`}
+          onClick={() => onChange({ ...filters, eligibleOnly: !filters.eligibleOnly })}
+          role="switch"
+          aria-checked={filters.eligibleOnly}
+          tabIndex={0}
+          onKeyDown={e => { if (e.key === ' ' || e.key === 'Enter') onChange({ ...filters, eligibleOnly: !filters.eligibleOnly }); }}
+        >
+          <div className="toggle-thumb" />
+        </div>
+        Eligible only
+      </label>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.85rem', color: '#475569', marginBottom: '1.5rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#64748b' }}>Minimum CGPA:</span>
-                  <span style={{ fontWeight: '600' }}>{drive.minCgpa}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#64748b' }}>Backlogs allowed:</span>
-                  <span style={{ fontWeight: '600' }}>{drive.backlogs}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#64748b' }}>Application Deadline:</span>
-                  <span style={{ fontWeight: '600' }}>{drive.deadline}</span>
-                </div>
-                <div style={{ marginTop: '0.25rem' }}>
-                  <span style={{ color: '#64748b', fontSize: '0.75rem', display: 'block' }}>Eligible branches:</span>
-                  <span style={{ fontSize: '0.8rem', fontWeight: '500', color: '#1e293b' }}>{drive.departments}</span>
-                </div>
-              </div>
-            </div>
+      <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+        <Button variant="primary" size="sm" onClick={onApply} style={{ flex: 1 }}>Apply</Button>
+        <Button variant="secondary" size="sm" onClick={onReset}>Reset</Button>
+      </div>
+    </div>
+  );
+}
 
-            <button 
-              onClick={() => alert(`Applied for ${drive.company}`)}
-              disabled={!drive.eligible}
-              style={{ 
-                width: '100%', 
-                background: drive.eligible ? '#2563eb' : '#94a3b8', 
-                color: 'white', 
-                border: 'none', 
-                padding: '0.65rem', 
-                borderRadius: '6px', 
-                cursor: drive.eligible ? 'pointer' : 'not-allowed', 
-                fontWeight: '600',
-                fontSize: '0.9rem' 
-              }}
-            >
-              {drive.eligible ? 'Apply for Drive →' : 'Criteria Not Met'}
-            </button>
+const EMPTY_FILTERS = { keyword: '', skills: [], minPackage: '', location: '', eligibleOnly: false };
+
+/* ---- Drive card ------------------------------------------------- */
+function DriveCard({ drive, onViewDetails }) {
+  const eligibleStatus = drive.isEligible ? 'eligible' : 'not eligible';
+  const ctc = drive.ctcAnnual
+    ? `₹${(drive.ctcAnnual / 100000).toFixed(1)} LPA`
+    : drive.ctc || null;
+
+  return (
+    <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 'var(--space-3)' }}>
+        <div>
+          <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 'var(--font-weight-semibold)', marginBottom: 2 }}>
+            {drive.companyName || drive.company_name || '—'}
+          </h3>
+          <p style={{ fontSize: 'var(--font-size-sm)', margin: 0 }}>
+            {drive.title || drive.role || '—'}
+          </p>
+        </div>
+        <Badge status={eligibleStatus} />
+      </div>
+
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+        {ctc && (
+          <span className="chip">{ctc}</span>
+        )}
+        {drive.applicationDeadline && (
+          <span className="chip">
+            Deadline: {new Date(drive.applicationDeadline).toLocaleDateString()}
+          </span>
+        )}
+        {drive.location && <span className="chip">{drive.location}</span>}
+      </div>
+
+      <div style={{ marginTop: 'auto', paddingTop: 'var(--space-2)' }}>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => onViewDetails(drive.id)}
+          fullWidth
+        >
+          View details
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/* ---- Main page -------------------------------------------------- */
+export default function DriveList() {
+  const navigate = useNavigate();
+
+  const [drives, setDrives]         = useState([]);
+  const [loading, setLoading]       = useState(true);
+  const [error, setError]           = useState(null);
+  const [filters, setFilters]       = useState(EMPTY_FILTERS);
+  const [appliedFilters, setAppliedFilters] = useState(EMPTY_FILTERS);
+  const [filterOpen, setFilterOpen] = useState(false);
+
+  const load = useCallback(async (f = EMPTY_FILTERS) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const params = new URLSearchParams();
+      if (f.keyword)     params.set('keyword', f.keyword);
+      if (f.skills?.length) params.set('skills', f.skills.join(','));
+      if (f.minPackage)  params.set('minPackage', f.minPackage);
+      if (f.location)    params.set('location', f.location);
+      if (f.eligibleOnly) params.set('eligibleOnly', '1');
+
+      const res = await fetchAllDrives(params);
+      setDrives(res?.data || res || []);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleApply = () => {
+    setAppliedFilters(filters);
+    load(filters);
+    setFilterOpen(false);
+  };
+
+  const handleReset = () => {
+    setFilters(EMPTY_FILTERS);
+    setAppliedFilters(EMPTY_FILTERS);
+    load(EMPTY_FILTERS);
+    setFilterOpen(false);
+  };
+
+  return (
+    <div>
+      <PageHeader
+        title="Job Drives"
+        description="Browse active campus recruitment drives and check your eligibility."
+        actions={
+          <>
+            <Button variant="ghost" size="sm" onClick={() => setFilterOpen(o => !o)}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+              </svg>
+              Filters
+            </Button>
+          </>
+        }
+      />
+
+      <div style={{ display: 'flex', gap: 'var(--space-6)', alignItems: 'flex-start' }}>
+        {/* Filter panel — sidebar on desktop, collapsible on mobile */}
+        {filterOpen && (
+          <div style={{ width: 260, flexShrink: 0 }}>
+            <FilterPanel
+              filters={filters}
+              onChange={setFilters}
+              onApply={handleApply}
+              onReset={handleReset}
+            />
           </div>
-        ))}
+        )}
+
+        {/* Main drives grid */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {loading && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px,1fr))', gap: 'var(--space-4)' }}>
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="card" style={{ minHeight: 160 }}>
+                  <div className="skeleton skeleton-text" style={{ width: '60%', marginBottom: 8 }} />
+                  <div className="skeleton skeleton-text" style={{ width: '80%', marginBottom: 16 }} />
+                  <div className="skeleton skeleton-text" style={{ width: '40%' }} />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {!loading && error && <ErrorState message={error} onRetry={() => load(appliedFilters)} />}
+
+          {!loading && !error && drives.length === 0 && (
+            <EmptyState
+              icon={
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <rect x="2" y="7" width="20" height="14" rx="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+                </svg>
+              }
+              title="No drives found"
+              description="There are no active recruitment drives at the moment, or none match your current filters."
+              action={appliedFilters !== EMPTY_FILTERS
+                ? <Button variant="secondary" onClick={handleReset}>Clear filters</Button>
+                : null
+              }
+            />
+          )}
+
+          {!loading && !error && drives.length > 0 && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px,1fr))', gap: 'var(--space-4)' }}>
+              {drives.map(drive => (
+                <DriveCard
+                  key={drive.id}
+                  drive={drive}
+                  onViewDetails={id => navigate(`/drives/${id}`)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
