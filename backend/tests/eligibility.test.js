@@ -9,24 +9,76 @@ describe('Eligibility Service Unit Tests', () => {
     eligible_batch_years: [2025],
   };
 
-  test('should return eligible for a student satisfying all criteria', () => {
+  test('should return eligible when student meets all criteria', () => {
     const student = {
       cgpa: 8.5,
       active_backlogs: 0,
       department: 'Computer Science',
       batch_year: 2025,
     };
+
     const result = evaluateEligibility(student, sampleDrive);
+
     expect(result.isEligible).toBe(true);
+    expect(result.reasons).toEqual([]);
   });
 
-  test('should return ineligible if student CGPA is below minimum requirement', () => {
-    // Scaffolding for CGPA failure check
-    expect(true).toBe(true);
+  test('should return ineligible when CGPA is below minimum', () => {
+    const student = {
+      cgpa: 6.5,
+      active_backlogs: 0,
+      department: 'Computer Science',
+      batch_year: 2025,
+    };
+
+    const result = evaluateEligibility(student, sampleDrive);
+
+    expect(result.isEligible).toBe(false);
+    expect(result.reasons.length).toBeGreaterThan(0);
   });
 
-  test('should return ineligible if student has active backlogs exceeding threshold', () => {
-    // Scaffolding for backlogs check
-    expect(true).toBe(true);
+  test('should return ineligible when active backlogs exceed the limit', () => {
+    const student = {
+      cgpa: 8.5,
+      active_backlogs: 2,
+      department: 'Computer Science',
+      batch_year: 2025,
+    };
+
+    const result = evaluateEligibility(student, sampleDrive);
+
+    expect(result.isEligible).toBe(false);
+    expect(result.reasons.length).toBeGreaterThan(0);
+  });
+
+  test('should return ineligible when department is not eligible', () => {
+    const student = {
+      cgpa: 8.5,
+      active_backlogs: 0,
+      department: 'Mechanical Engineering',
+      batch_year: 2025,
+    };
+
+    const result = evaluateEligibility(student, sampleDrive);
+
+    expect(result.isEligible).toBe(false);
+  });
+
+  test('should return ineligible when batch year is not eligible', () => {
+    const student = {
+      cgpa: 8.5,
+      active_backlogs: 0,
+      department: 'Computer Science',
+      batch_year: 2026,
+    };
+
+    const result = evaluateEligibility(student, sampleDrive);
+
+    expect(result.isEligible).toBe(false);
+  });
+
+  test('should reject invalid academic values and missing criteria', () => {
+    expect(evaluateEligibility({ cgpa: 'bad', active_backlogs: 0, department: 'Computer Science', batch_year: 2025 }, sampleDrive).isEligible).toBe(false);
+    expect(evaluateEligibility({ cgpa: 9, active_backlogs: 0, department: 'Computer Science', batch_year: 2025 }, { ...sampleDrive, eligible_departments: [] }).isEligible).toBe(false);
   });
 });

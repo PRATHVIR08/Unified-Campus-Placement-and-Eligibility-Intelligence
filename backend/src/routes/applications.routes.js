@@ -8,6 +8,6 @@ const requireRole = require('../middleware/requireRole');
 router.post('/', requireAuth, requireRole('student'), applicationsController.applyToDrive);
 router.get('/my', requireAuth, requireRole('student'), applicationsController.getMyApplications);
 router.get('/drive/:driveId', requireAuth, requireRole('officer'), applicationsController.getDriveApplications);
-router.patch('/:id/status', requireAuth, requireRole('officer'), applicationsController.updateStatus);
+router.patch('/:id/status', requireAuth, requireRole('student', 'officer'), applicationsController.updateStatus);
 
 module.exports = router;

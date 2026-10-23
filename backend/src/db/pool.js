@@ -3,11 +3,14 @@
 
 const { Pool } = require('pg');
 
+const databaseUrl = process.env.DATABASE_URL;
 const pool = new Pool(
-  process.env.DATABASE_URL
+  databaseUrl
     ? {
-        connectionString: process.env.DATABASE_URL,
-        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+        connectionString: databaseUrl,
+        // Let pg honor sslmode=require in hosted DATABASE_URL values. Local
+        // PostgreSQL URLs without sslmode continue to use the default (plain) connection.
+        ...(process.env.NODE_ENV === 'production' ? { ssl: { rejectUnauthorized: false } } : {}),
       }
     : {
         host: process.env.DB_HOST || 'localhost',

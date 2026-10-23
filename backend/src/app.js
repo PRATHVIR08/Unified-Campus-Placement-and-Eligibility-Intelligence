@@ -1,5 +1,4 @@
 // Express Application Setup [P2]
-// Responsibilities: Attach core middleware (cors, json), mount route groups, attach global error handler
 
 const express = require('express');
 const cors = require('cors');
@@ -18,10 +17,19 @@ const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
 
+// Core middleware
 app.use(cors());
 app.use(express.json());
 
-// API Base Route Mounts
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'Backend is running!',
+  });
+});
+
+// API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/students', studentsRoutes);
 app.use('/api/companies', companiesRoutes);
@@ -31,7 +39,7 @@ app.use('/api/interviews', interviewRoundsRoutes);
 app.use('/api/offers', offersRoutes);
 app.use('/api/reports', reportsRoutes);
 
-// Global Error Handler
+// Global error handler (keep last)
 app.use(errorHandler);
 
 module.exports = app;

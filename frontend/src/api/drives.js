@@ -1,8 +1,9 @@
 // Job Drives API Client [P1]
 import { apiClient } from './client';
 
-export async function fetchAllDrives() {
-  return apiClient('/drives');
+export async function fetchAllDrives(params) {
+  const query = params?.toString?.();
+  return apiClient(`/drives${query ? `?${query}` : ''}`);
 }
 
 export async function fetchDriveById(id) {

@@ -9,7 +9,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- 2. ENUMS
 CREATE TYPE user_role AS ENUM ('student', 'officer', 'admin');
-CREATE TYPE application_status AS ENUM ('applied', 'shortlisted', 'in_interview', 'offered', 'accepted', 'rejected');
+CREATE TYPE application_status AS ENUM ('applied', 'shortlisted', 'in_interview', 'offered', 'accepted', 'rejected', 'withdrawn');
 CREATE TYPE drive_status AS ENUM ('draft', 'active', 'closed', 'completed');
 CREATE TYPE round_type AS ENUM ('online_assessment', 'technical', 'gd', 'hr', 'final');
 
@@ -17,7 +17,7 @@ CREATE TYPE round_type AS ENUM ('online_assessment', 'technical', 'gd', 'hr', 'f
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     email VARCHAR(255) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
+    password_hash VARCHAR(255),
     role user_role NOT NULL DEFAULT 'student',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -28,13 +28,14 @@ CREATE TABLE IF NOT EXISTS students (
     roll_number VARCHAR(50) UNIQUE NOT NULL,
     first_name VARCHAR(100) NOT NULL,
     last_name VARCHAR(100) NOT NULL,
-    department VARCHAR(100) NOT NULL,
-    batch_year INTEGER NOT NULL,
-    cgpa NUMERIC(4, 2) NOT NULL CHECK (cgpa >= 0.00 AND cgpa <= 10.00),
+    department VARCHAR(100),
+    batch_year INTEGER,
+    cgpa NUMERIC(4, 2) CHECK (cgpa >= 0.00 AND cgpa <= 10.00),
     tenth_percentage NUMERIC(5, 2) CHECK (tenth_percentage >= 0 AND tenth_percentage <= 100),
     twelfth_percentage NUMERIC(5, 2) CHECK (twelfth_percentage >= 0 AND twelfth_percentage <= 100),
-    active_backlogs INTEGER NOT NULL DEFAULT 0 CHECK (active_backlogs >= 0),
+    active_backlogs INTEGER DEFAULT 0 CHECK (active_backlogs >= 0),
     total_backlogs_history INTEGER NOT NULL DEFAULT 0 CHECK (total_backlogs_history >= 0),
+    degree VARCHAR(100),
     resume_url TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -44,6 +45,7 @@ CREATE TABLE IF NOT EXISTS companies (
     name VARCHAR(255) UNIQUE NOT NULL,
     website VARCHAR(255),
     industry VARCHAR(100),
+    contact_name VARCHAR(255),
     contact_email VARCHAR(255),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

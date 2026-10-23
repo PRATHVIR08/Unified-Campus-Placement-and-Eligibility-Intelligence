@@ -1,25 +1,56 @@
 // Eligibility Service [P2]
-// Core Domain Service: Evaluates a student's profile against job drive criteria
-// Output format: { isEligible: boolean, reasons: string[] }
 
-/**
- * Evaluates whether a student satisfies the eligibility criteria for a given drive.
- * @param {Object} student - Student profile (cgpa, active_backlogs, department, batch_year)
- * @param {Object} drive - Job drive criteria (min_cgpa, max_active_backlogs, eligible_departments, eligible_batch_years)
- * @returns {{ isEligible: boolean, reasons: string[] }}
- */
 function evaluateEligibility(student, drive) {
-  // Scaffolding:
-  // 1. Check CGPA (student.cgpa >= drive.min_cgpa)
-  // 2. Check Backlogs (student.active_backlogs <= drive.max_active_backlogs)
-  // 3. Check Department (drive.eligible_departments includes student.department)
-  // 4. Check Batch Year (drive.eligible_batch_years includes student.batch_year)
+  const reasons = [];
+
+  if (!student || !drive) {
+    return {
+      isEligible: false,
+      reasons: ['Student profile or job drive criteria are missing'],
+    };
+  }
+
+  if (student.cgpa == null || student.cgpa === '' || student.active_backlogs == null || student.active_backlogs === '' || !student.department || student.batch_year == null || student.batch_year === '') {
+    reasons.push('Student academic profile is incomplete');
+  }
+  if (!Number.isFinite(Number(student.cgpa)) || !Number.isFinite(Number(drive.min_cgpa)) ||
+      !Number.isFinite(Number(student.active_backlogs)) || !Number.isFinite(Number(drive.max_active_backlogs))) {
+    reasons.push('Academic eligibility data is invalid');
+  }
+
+  if (Number(student.cgpa) < Number(drive.min_cgpa)) {
+    reasons.push(
+      `CGPA must be at least ${drive.min_cgpa}`
+    );
+  }
+
+  if (
+    Number(student.active_backlogs) >
+    Number(drive.max_active_backlogs)
+  ) {
+    reasons.push(
+      `Active backlogs must not exceed ${drive.max_active_backlogs}`
+    );
+  }
+
+  if (
+    !Array.isArray(drive.eligible_departments) || drive.eligible_departments.length === 0 ||
+    !drive.eligible_departments.includes(student.department)
+  ) {
+    reasons.push('Department is not eligible for this drive');
+  }
+
+  if (
+    !Array.isArray(drive.eligible_batch_years) ||
+    !drive.eligible_batch_years.includes(Number(student.batch_year))
+  ) {
+    reasons.push('Batch year is not eligible for this drive');
+  }
+
   return {
-    isEligible: true,
-    reasons: [],
+    isEligible: reasons.length === 0,
+    reasons,
   };
 }
 
-module.exports = {
-  evaluateEligibility,
-};
+module.exports = { evaluateEligibility };

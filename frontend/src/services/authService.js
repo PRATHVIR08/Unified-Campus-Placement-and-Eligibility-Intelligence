@@ -1,98 +1,51 @@
-// Auth Service Abstraction  [P1]
-// ---------------------------------------------------------------
-// Replace the bodies of the functions below when Supabase is ready.
-// Do NOT change the function signatures — they are used by AuthContext.
-// ---------------------------------------------------------------
+import { apiClient } from '../api/client';
+import { requireSupabase } from '../lib/supabaseClient';
 
-/**
- * TODO: Replace with Supabase sign-up when connecting auth.
- *
- * import { supabase } from '../lib/supabaseClient';
- *
- * async function signUp({ name, email, usn, password }) {
- *   const { data, error } = await supabase.auth.signUp({
- *     email,
- *     password,
- *     options: {
- *       data: {
- *         full_name: name,   // stored in auth.users.raw_user_meta_data
- *         usn,               // stored in auth.users.raw_user_meta_data
- *       },
- *     },
- *   });
- *   if (error) throw new Error(error.message);
- *
- *   // Also insert into your custom "profiles" table:
- *   // await supabase.from('profiles').insert({ id: data.user.id, usn, name, role: 'student' });
- *
- *   return data;
- * }
- */
 export async function signUp({ name, email, usn, password }) {
-  return Promise.reject(new Error('Auth service is not connected yet'));
+  const client = requireSupabase();
+  const { data, error } = await client.auth.signUp({
+    email: email.trim().toLowerCase(),
+    password,
+    options: { data: { full_name: name.trim(), usn: usn.trim().toUpperCase() } },
+  });
+  if (error) throw new Error(error.message);
+
+  // Supabase may require email confirmation before it provides a session.
+  // When a session is available, provision the matching student row now.
+  if (data.session) await apiClient('/auth/provision', { method: 'POST' });
+  return data;
 }
 
-/**
- * TODO: Replace with Supabase sign-in when connecting auth.
- *
- * import { supabase } from '../lib/supabaseClient';
- *
- * async function signIn({ email, password }) {
- *   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
- *   if (error) throw new Error(error.message);
- *   return data;
- * }
- */
 export async function signIn({ email, password }) {
-  return Promise.reject(new Error('Auth service is not connected yet'));
+  const client = requireSupabase();
+  const { data, error } = await client.auth.signInWithPassword({
+    email: email.trim().toLowerCase(),
+    password,
+  });
+  if (error) throw new Error(error.message);
+  await apiClient('/auth/provision', { method: 'POST' });
+  return data;
 }
 
-/**
- * TODO: Replace with Supabase sign-out when connecting auth.
- *
- * import { supabase } from '../lib/supabaseClient';
- *
- * async function signOut() {
- *   const { error } = await supabase.auth.signOut();
- *   if (error) throw new Error(error.message);
- * }
- */
 export async function signOut() {
-  return Promise.reject(new Error('Auth service is not connected yet'));
+  const { error } = await requireSupabase().auth.signOut();
+  if (error) throw new Error(error.message);
 }
 
-/**
- * TODO: Replace with Supabase session retrieval when connecting auth.
- *
- * import { supabase } from '../lib/supabaseClient';
- *
- * async function getSession() {
- *   const { data: { session } } = await supabase.auth.getSession();
- *   return session;   // null if not logged in
- * }
- */
+export async function provisionStudentProfile() {
+  return apiClient('/auth/provision', { method: 'POST' });
+}
+
 export async function getSession() {
-  // Resolves to null (not logged in) until Supabase is connected.
-  return null;
+  const { data, error } = await requireSupabase().auth.getSession();
+  if (error) throw new Error(error.message);
+  return data.session;
 }
 
-/**
- * TODO: Replace with Supabase auth state listener when connecting auth.
- *
- * import { supabase } from '../lib/supabaseClient';
- *
- * function onAuthStateChange(callback) {
- *   const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
- *     callback(session);
- *   });
- *   return () => subscription.unsubscribe();  // return unsubscribe function
- * }
- *
- * The callback receives the Supabase Session object or null.
- * AuthContext uses the session to derive the user, role, and profile.
- * Role comes from the "profiles" table, never from the JWT/user-metadata directly.
- */
 export function onAuthStateChange(callback) {
-  // No-op until Supabase is connected — returns a no-op unsubscribe function.
-  return () => {};
+  const { data } = requireSupabase().auth.onAuthStateChange((_event, session) => {
+    // Let Supabase release its auth lock before callback code calls getSession.
+    setTimeout(() => callback(session), 0);
+  });
+  return () => data.subscription.unsubscribe();
 }

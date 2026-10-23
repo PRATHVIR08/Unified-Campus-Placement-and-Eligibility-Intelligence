@@ -1,13 +1,15 @@
-// API Client Helper [P1]
-// Wraps fetch with default headers, base URL, and JWT token injection
+// API client: uses the active Supabase access token for protected API requests.
 
-const BASE_URL = import.meta.env.VITE_API_URL || '/api';
+const BASE_URL = (import.meta.env.VITE_API_URL || '/api').replace(/\/$/, '');
+import { requireSupabase } from '../lib/supabaseClient';
 
 export async function apiClient(endpoint, options = {}) {
-  const token = localStorage.getItem('token');
+  const { data: { session }, error: sessionError } = await requireSupabase().auth.getSession();
+  if (sessionError) throw new Error(sessionError.message);
+
   const headers = {
-    'Content-Type': 'application/json',
-    ...(token && { Authorization: `Bearer ${token}` }),
+    ...(options.body && { 'Content-Type': 'application/json' }),
+    ...(session?.access_token && { Authorization: `Bearer ${session.access_token}` }),
     ...options.headers,
   };
 

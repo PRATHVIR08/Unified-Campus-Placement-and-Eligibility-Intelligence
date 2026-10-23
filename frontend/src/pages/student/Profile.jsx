@@ -69,11 +69,11 @@ export default function Profile() {
     try {
       await updateStudentProfile({
         name:            form.name,
-        department:      form.department,
-        degree:          form.degree,
-        batchYear:       Number(form.batch_year),
-        cgpa:            Number(form.cgpa),
-        activeBacklogs:  Number(form.active_backlogs),
+        department:      form.department.trim() || null,
+        degree:          form.degree.trim() || null,
+        batchYear:       form.batch_year === '' ? null : Number(form.batch_year),
+        cgpa:            form.cgpa === '' ? null : Number(form.cgpa),
+        activeBacklogs:  form.active_backlogs === '' ? null : Number(form.active_backlogs),
       });
       setSaveMsg('Profile updated successfully.');
     } catch (err) {

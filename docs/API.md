@@ -33,6 +33,15 @@ All protected endpoints require the HTTP Header:
 
 ---
 
+### GET `/api/auth/me`
+- **Access**: Protected
+- **Response**: The authenticated user's id, email, and role loaded from PostgreSQL.
+
+### POST `/api/auth/provision`
+- **Access**: Valid Supabase access token
+- **Purpose**: Idempotently creates a missing student application/profile row for the authenticated Supabase user. Public provisioning always assigns the `student` role; existing database roles are retained.
+- **Signup metadata**: `full_name` and `usn` are collected by the student registration form. Academic fields are completed later through `PUT /api/students/profile`.
+
 ## 2. Students (`/api/students`)
 
 ### GET `/api/students/profile`
@@ -95,7 +104,7 @@ All protected endpoints require the HTTP Header:
 - **Response**: List of student's current applications and statuses.
 
 ### PATCH `/api/applications/:id/status`
-- **Access**: Protected (`officer` only)
+- **Access**: Protected (`officer`; a student may send `withdrawn` only for their own `applied` application)
 - **Request Body**:
   ```json
   {
