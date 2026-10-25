@@ -3,12 +3,15 @@
 -- Description: Baseline mock data for users, students, companies, drives, applications.
 -- ==============================================================================
 
--- 1. SEED USERS & ROLES (Password: 'Password@123' bcrypt hash placeholder)
+-- 1. SEED USERS & ROLES (Password: 'Password@123')
 INSERT INTO users (id, email, password_hash, role) VALUES
-    ('a0000000-0000-0000-0000-000000000001', 'officer@campus.edu', '$2b$10$placeholderOfficerHashHere00000000000000000000000000', 'officer'),
-    ('b0000000-0000-0000-0000-000000000001', 'student1@campus.edu', '$2b$10$placeholderStudentHashHere0000000000000000000000000', 'student'),
-    ('b0000000-0000-0000-0000-000000000002', 'student2@campus.edu', '$2b$10$placeholderStudentHashHere0000000000000000000000000', 'student')
-ON CONFLICT (id) DO NOTHING;
+    ('a0000000-0000-0000-0000-000000000001', 'officer@campus.edu', '$2b$10$yLqjDdBxBTE7lFm7N3CsVu83.Q6vXPEJ1GbVuzZoJuNHDkEm26U9C', 'officer'),
+    ('b0000000-0000-0000-0000-000000000001', 'student1@campus.edu', '$2b$10$yLqjDdBxBTE7lFm7N3CsVu83.Q6vXPEJ1GbVuzZoJuNHDkEm26U9C', 'student'),
+    ('b0000000-0000-0000-0000-000000000002', 'student2@campus.edu', '$2b$10$yLqjDdBxBTE7lFm7N3CsVu83.Q6vXPEJ1GbVuzZoJuNHDkEm26U9C', 'student')
+ON CONFLICT (id) DO UPDATE SET
+    email = EXCLUDED.email,
+    password_hash = EXCLUDED.password_hash,
+    role = EXCLUDED.role;
 
 -- 2. SEED STUDENTS
 INSERT INTO students (id, roll_number, first_name, last_name, department, batch_year, cgpa, tenth_percentage, twelfth_percentage, active_backlogs, total_backlogs_history) VALUES

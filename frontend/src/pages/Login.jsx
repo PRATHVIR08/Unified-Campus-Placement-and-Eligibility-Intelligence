@@ -1,7 +1,7 @@
 // Login / Register page  [P1]
 // Split desktop layout: left marketing panel + right form card.
 // Mobile: form only. Segmented toggle switches between login and register.
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import Input from '../components/Input';
 import Button from '../components/Button';
@@ -70,16 +70,13 @@ const FEATURES = [
 ];
 
 /* ---- Login form ------------------------------------------------- */
-function LoginForm() {
+function LoginForm({ registrationNotice }) {
   const { signIn } = useAuth();
   const [fields, setFields]     = useState({ email: '', password: '' });
   const [touched, setTouched]   = useState({});
   const [errors, setErrors]     = useState({});
   const [formError, setFormError] = useState('');
   const [loading, setLoading]   = useState(false);
-
-  const firstErrorRef = useRef(null);
-
   const set = (field, value) => {
     setFields(f => ({ ...f, [field]: value }));
     if (touched[field]) {
@@ -121,6 +118,17 @@ function LoginForm() {
 
   return (
     <form onSubmit={handleSubmit} noValidate>
+      {registrationNotice && (
+        <div
+          className={`alert ${registrationNotice.confirmationRequired ? 'alert-success' : 'alert-error'}`}
+          role="status"
+          style={{ marginBottom: 'var(--space-4)' }}
+        >
+          {registrationNotice.confirmationRequired
+            ? 'Registration successful. Check your email, confirm your account, then sign in here.'
+            : 'Registration succeeded, but Supabase email confirmation is disabled. Enable Confirm email in Supabase Auth to send verification emails.'}
+        </div>
+      )}
       <div className="form-section" style={{ gap: 'var(--space-4)' }}>
         <Input
           id="login-email"
@@ -163,13 +171,12 @@ function LoginForm() {
 }
 
 /* ---- Register form --------------------------------------------- */
-function RegisterForm() {
+function RegisterForm({ onRegistered }) {
   const { signUp } = useAuth();
   const [fields, setFields]     = useState({ name: '', email: '', usn: '', password: '', confirm: '' });
   const [touched, setTouched]   = useState({});
   const [errors, setErrors]     = useState({});
   const [formError, setFormError] = useState('');
-  const [success, setSuccess]   = useState(false);
   const [loading, setLoading]   = useState(false);
 
   const set = (field, rawValue) => {
@@ -203,27 +210,14 @@ function RegisterForm() {
     setLoading(true);
     setFormError('');
     try {
-      await signUp({ name: fields.name, email: fields.email, usn: fields.usn, password: fields.password });
-      setSuccess(true);
+      const result = await signUp({ name: fields.name, email: fields.email, usn: fields.usn, password: fields.password });
+      onRegistered(result.confirmationRequired);
     } catch (err) {
       setFormError(err.message || 'Registration failed. Please try again.');
     } finally {
       setLoading(false);
     }
   };
-
-  if (success) {
-    return (
-      <div className="alert alert-success" role="status" style={{ textAlign: 'center', padding: 'var(--space-8)' }}>
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ margin: '0 auto var(--space-3)' }} aria-hidden="true">
-          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-          <polyline points="22 4 12 14.01 9 11.01" />
-        </svg>
-        <p style={{ fontWeight: 'var(--font-weight-semibold)', color: 'var(--color-text-primary)', marginBottom: 'var(--space-1)' }}>Account created</p>
-        <p style={{ fontSize: 'var(--font-size-sm)' }}>Check your email to confirm your account before signing in.</p>
-      </div>
-    );
-  }
 
   return (
     <form onSubmit={handleSubmit} noValidate>
@@ -316,6 +310,12 @@ function RegisterForm() {
 /* ---- Page -------------------------------------------------------- */
 export default function Login() {
   const [tab, setTab] = useState('login');
+  const [registrationNotice, setRegistrationNotice] = useState(null);
+
+  const handleRegistrationComplete = (confirmationRequired) => {
+    setRegistrationNotice({ confirmationRequired });
+    setTab('login');
+  };
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--color-bg)' }}>
@@ -428,7 +428,9 @@ export default function Login() {
             role="tabpanel"
             aria-labelledby={tab === 'login' ? 'tab-login' : 'tab-register'}
           >
-            {tab === 'login' ? <LoginForm /> : <RegisterForm />}
+            {tab === 'login'
+              ? <LoginForm registrationNotice={registrationNotice} />
+              : <RegisterForm onRegistered={handleRegistrationComplete} />}
           </div>
         </div>
       </div>

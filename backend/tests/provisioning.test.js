@@ -56,4 +56,30 @@ describe('Supabase student provisioning (mocked PostgreSQL)', () => {
     expect(res.statusCode).toBe(400);
     expect(client.query.mock.calls.some(([sql]) => sql.includes('INSERT INTO users'))).toBe(false);
   });
+
+  test('explains when the Supabase account USN is already assigned to another student', async () => {
+    const duplicateUsn = Object.assign(new Error('duplicate key'), {
+      code: '23505',
+      constraint: 'students_roll_number_key',
+    });
+    client.query
+      .mockResolvedValueOnce({ rows: [] }) // BEGIN
+      .mockResolvedValueOnce({ rows: [] }) // user lookup
+      .mockResolvedValueOnce({ rows: [{ id: 'student-id', email: 'student@example.edu', role: 'student' }] }) // insert user
+      .mockRejectedValueOnce(duplicateUsn) // insert student profile
+      .mockResolvedValueOnce({ rows: [] }); // ROLLBACK
+    db.query.mockResolvedValue({ rows: [] });
+
+    const res = response();
+    await provisionStudent({
+      authUser: {
+        id: 'student-id',
+        email: 'student@example.edu',
+        user_metadata: { full_name: 'Test Student', usn: '1AB21CS001' },
+      },
+    }, res, (error) => { throw error; });
+
+    expect(res.statusCode).toBe(409);
+    expect(res.body.error).toContain('USN is already linked');
+  });
 });

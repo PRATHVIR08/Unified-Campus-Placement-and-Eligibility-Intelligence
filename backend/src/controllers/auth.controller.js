@@ -22,6 +22,8 @@ exports.register = async (req, res, next) => {
   const {
     email,
     password,
+    name,
+    usn,
     rollNumber,
     firstName,
     lastName,
@@ -51,24 +53,44 @@ exports.register = async (req, res, next) => {
     });
   }
 
-  if (!rollNumber || !firstName || !lastName || !department ||
-      batchYear === undefined || cgpa === undefined) {
+  const nameParts = typeof name === 'string' ? name.trim().split(/\s+/).filter(Boolean) : [];
+  const resolvedFirstName = (typeof firstName === 'string' && firstName.trim()) || nameParts[0] || '';
+  const resolvedLastName = (typeof lastName === 'string' && lastName.trim())
+    || (nameParts.length > 1 ? nameParts.slice(1).join(' ') : '');
+  const resolvedRollNumber = (typeof rollNumber === 'string' && rollNumber.trim())
+    || (typeof usn === 'string' && usn.trim().toUpperCase())
+    || '';
+
+  if (!resolvedFirstName || !resolvedRollNumber) {
     return res.status(400).json({
       success: false,
-      error: 'Student details are required: rollNumber, firstName, lastName, department, batchYear and cgpa',
+      error: 'Student details are required: name (or firstName) and usn/rollNumber',
     });
   }
 
-  const parsedBatchYear = Number(batchYear);
-  const parsedCgpa = Number(cgpa);
-
-  if (!Number.isInteger(parsedBatchYear) ||
-      !Number.isFinite(parsedCgpa) || parsedCgpa < 0 || parsedCgpa > 10) {
-    return res.status(400).json({
-      success: false,
-      error: 'Batch year must be an integer and CGPA must be between 0 and 10',
-    });
+  let parsedBatchYear = null;
+  let parsedCgpa = null;
+  if (batchYear !== undefined && batchYear !== null && batchYear !== '') {
+    parsedBatchYear = Number(batchYear);
+    if (!Number.isInteger(parsedBatchYear)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Batch year must be an integer',
+      });
+    }
   }
+  if (cgpa !== undefined && cgpa !== null && cgpa !== '') {
+    parsedCgpa = Number(cgpa);
+    if (!Number.isFinite(parsedCgpa) || parsedCgpa < 0 || parsedCgpa > 10) {
+      return res.status(400).json({
+        success: false,
+        error: 'CGPA must be between 0 and 10',
+      });
+    }
+  }
+  const resolvedDepartment = typeof department === 'string' && department.trim()
+    ? department.trim()
+    : null;
 
   let client;
 
@@ -108,10 +130,10 @@ exports.register = async (req, res, next) => {
        VALUES ($1, $2, $3, $4, $5, $6, $7)`,
       [
         user.id,
-        rollNumber.trim(),
-        firstName.trim(),
-        lastName.trim(),
-        department.trim(),
+        resolvedRollNumber,
+        resolvedFirstName,
+        resolvedLastName,
+        resolvedDepartment,
         parsedBatchYear,
         parsedCgpa,
       ]
@@ -284,15 +306,32 @@ exports.provisionStudent = async (req, res, next) => {
       // Supabase emits auth-state events while signup is completing. Two
       // provisioning requests can race; accept the winner only for this same
       // authenticated id, and still reject email/USN conflicts from other users.
-      const winner = await db.query(
-        `SELECT u.id, u.email, u.role FROM users u
-         JOIN students s ON s.id = u.id WHERE u.id = $1`,
-        [authUser.id]
-      ).catch(() => ({ rows: [] }));
+      let winner;
+      try {
+        winner = await db.query(
+          `SELECT u.id, u.email, u.role FROM users u
+           JOIN students s ON s.id = u.id WHERE u.id = $1`,
+          [authUser.id]
+        );
+      } catch (winnerError) {
+        return next(winnerError);
+      }
       if (winner.rows.length && winner.rows[0].role === 'student') {
         return res.json({ success: true, user: winner.rows[0] });
       }
-      return res.status(409).json({ success: false, error: 'This email or USN is already registered' });
+      if (error.constraint && error.constraint.includes('roll_number')) {
+        return res.status(409).json({
+          success: false,
+          error: 'This USN is already linked to another student profile. Update the USN in your Supabase account metadata to a valid, unused USN, then sign in again.',
+        });
+      }
+      if (error.constraint && error.constraint.includes('email')) {
+        return res.status(409).json({
+          success: false,
+          error: 'This email is already linked to a different application account. Contact your placement administrator to link the accounts.',
+        });
+      }
+      return res.status(409).json({ success: false, error: 'This account conflicts with an existing student profile. Contact your placement administrator.' });
     }
     return next(error);
   } finally {

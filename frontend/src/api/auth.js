@@ -8,6 +8,13 @@ export async function login(credentials) {
   });
 }
 
+export async function register(details) {
+  return apiClient('/auth/register', {
+    method: 'POST',
+    body: JSON.stringify(details),
+  });
+}
+
 export async function getCurrentUser() {
   return apiClient('/auth/me');
 }

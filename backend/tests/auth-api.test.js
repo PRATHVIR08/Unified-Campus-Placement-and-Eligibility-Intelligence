@@ -16,6 +16,18 @@ describe('essential API endpoints', () => {
     expect(db.query).not.toHaveBeenCalled();
   });
 
+  test('login issues a JWT for a valid student password', async () => {
+    const bcrypt = require('bcrypt');
+    const password = 'Password@123';
+    const passwordHash = await bcrypt.hash(password, 4);
+    const user = { id: 'b0000000-0000-0000-0000-000000000001', email: 'student1@campus.edu', password_hash: passwordHash, role: 'student' };
+    db.query.mockResolvedValue({ rows: [user] });
+    const response = await request(app).post('/api/auth/login').send({ email: user.email, password });
+    expect(response.status).toBe(200);
+    expect(response.body.user.role).toBe('student');
+    expect(jwt.verify(response.body.token, process.env.JWT_SECRET).id).toBe(user.id);
+  });
+
   test('auth/me resolves the user from PostgreSQL', async () => {
     const user = { id: 'a0000000-0000-0000-0000-000000000001', email: 'officer@example.edu', role: 'officer' };
     db.query.mockResolvedValue({ rows: [user] });
