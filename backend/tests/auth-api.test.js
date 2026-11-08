@@ -1,106 +1,143 @@
-jest.mock('../src/db/pool', () => ({ query: jest.fn(), pool: {} }));
+jest.mock('../src/db/pool', () => ({
+  query: jest.fn(),
+  withTransaction: jest.fn(),
+  pool: {},
+}));
+
+const mockGetUser = jest.fn();
+jest.mock('@supabase/supabase-js', () => ({
+  createClient: jest.fn(() => ({ auth: { getUser: mockGetUser } })),
+}));
+
+process.env.SUPABASE_URL = 'https://project.supabase.co';
+process.env.SUPABASE_SERVICE_KEY = 'test-service-key';
 
 const request = require('supertest');
-const jwt = require('jsonwebtoken');
 const db = require('../src/db/pool');
-process.env.JWT_SECRET = 'test-only-secret';
 const app = require('../src/app');
+const { studentProfileSchema } = require('../src/validators/coreSchemas');
 
-describe('essential API endpoints', () => {
-  beforeEach(() => db.query.mockReset());
+describe('Supabase-authenticated API', () => {
+  let authUser;
+  let profile;
 
-  test('health endpoint is available without a database request', async () => {
+  beforeEach(() => {
+    authUser = {
+      id: 'b0000000-0000-0000-0000-000000000001',
+      email: 'student@example.edu',
+      user_metadata: { full_name: 'Test Student', usn: '1AB21CS001' },
+    };
+    profile = {
+      id: authUser.id,
+      email: authUser.email,
+      role: 'STUDENT',
+      full_name: 'Test Student',
+    };
+    mockGetUser.mockReset().mockResolvedValue({ data: { user: authUser }, error: null });
+    db.query.mockReset().mockImplementation((sql) => {
+      if (sql.includes('SELECT id, email, role, full_name FROM profiles')) {
+        return Promise.resolve({ rows: [profile] });
+      }
+      if (sql.includes('SELECT 1')) return Promise.resolve({ rows: [{ '?column?': 1 }] });
+      if (sql.includes('SELECT id, owner_id FROM companies')) {
+        return Promise.resolve({ rows: [{ id: 'c0000000-0000-0000-0000-000000000001', owner_id: 'another-recruiter' }] });
+      }
+      return Promise.resolve({ rows: [] });
+    });
+    db.withTransaction.mockImplementation((fn) => fn({ query: db.query }));
+  });
+
+  test('health endpoint checks PostgreSQL', async () => {
     const response = await request(app).get('/api/health');
     expect(response.status).toBe(200);
-    expect(response.body.success).toBe(true);
-    expect(db.query).not.toHaveBeenCalled();
+    expect(db.query).toHaveBeenCalledWith('SELECT 1');
   });
 
-  test('login issues a JWT for a valid student password', async () => {
-    const bcrypt = require('bcrypt');
-    const password = 'Password@123';
-    const passwordHash = await bcrypt.hash(password, 4);
-    const user = { id: 'b0000000-0000-0000-0000-000000000001', email: 'student1@campus.edu', password_hash: passwordHash, role: 'student' };
-    db.query.mockResolvedValue({ rows: [user] });
-    const response = await request(app).post('/api/auth/login').send({ email: user.email, password });
+  test('protected endpoint rejects a request without a token', async () => {
+    const response = await request(app).get('/api/auth/me');
+    expect(response.status).toBe(401);
+    expect(response.body.error).toMatch(/bearer token/i);
+    expect(mockGetUser).not.toHaveBeenCalled();
+  });
+
+  test('verifies Supabase access token and provisions a missing profile', async () => {
+    db.query.mockImplementation((sql) => {
+      if (sql.includes('SELECT id, email, role, full_name FROM profiles')) {
+        return Promise.resolve({ rows: [profile] });
+      }
+      return Promise.resolve({ rows: [] });
+    });
+    const response = await request(app)
+      .get('/api/auth/me')
+      .set('Authorization', 'Bearer verified-access-token');
+
     expect(response.status).toBe(200);
-    expect(response.body.user.role).toBe('student');
-    expect(jwt.verify(response.body.token, process.env.JWT_SECRET).id).toBe(user.id);
+    expect(mockGetUser).toHaveBeenCalledWith('verified-access-token');
+    expect(db.query.mock.calls[0][0]).toContain("VALUES ($1, $2, $3, $4, 'STUDENT')");
+    expect(response.body.user).toMatchObject({ id: authUser.id, role: 'STUDENT', fullName: 'Test Student' });
   });
 
-  test('auth/me resolves the user from PostgreSQL', async () => {
-    const user = { id: 'a0000000-0000-0000-0000-000000000001', email: 'officer@example.edu', role: 'officer' };
-    db.query.mockResolvedValue({ rows: [user] });
-    const token = jwt.sign({ id: user.id, role: 'student' }, process.env.JWT_SECRET);
-    const response = await request(app).get('/api/auth/me').set('Authorization', `Bearer ${token}`);
-    expect(response.status).toBe(200);
-    expect(response.body.user.role).toBe('officer');
+  test('returns 401 for a Supabase token that cannot be verified', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null }, error: new Error('invalid') });
+    const response = await request(app)
+      .get('/api/auth/me')
+      .set('Authorization', 'Bearer invalid-token');
+    expect(response.status).toBe(401);
   });
 
-  test('role checks use the database role, not the JWT role claim', async () => {
-    db.query.mockResolvedValue({ rows: [{ id: 'a0000000-0000-0000-0000-000000000001', email: 'officer@example.edu', role: 'officer' }] });
-    const token = jwt.sign({ id: 'a0000000-0000-0000-0000-000000000001', role: 'student' }, process.env.JWT_SECRET);
-    const response = await request(app).get('/api/applications/my').set('Authorization', `Bearer ${token}`);
+  test('returns 403 when a student requests an officer-only resource', async () => {
+    const response = await request(app)
+      .get('/api/students')
+      .set('Authorization', 'Bearer verified-access-token');
     expect(response.status).toBe(403);
-    expect(db.query).toHaveBeenCalledTimes(1);
   });
 
-  test('duplicate drive applications return conflict and do not insert a second row', async () => {
-    const studentId = 'b0000000-0000-0000-0000-000000000001';
-    const driveId = 'd0000000-0000-0000-0000-000000000001';
+  test('validates student academic fields before writing', async () => {
+    const response = await request(app)
+      .put('/api/students/me')
+      .set('Authorization', 'Bearer verified-access-token')
+      .send({ cgpa: 10.1 });
+    expect(response.status).toBe(400);
+    expect(response.body.error).toMatch(/10/);
+    expect(db.withTransaction).not.toHaveBeenCalled();
+  });
+
+  test('preserves null academic values so nullable fields can be cleared', () => {
+    expect(studentProfileSchema.parse({ cgpa: null })).toEqual({ cgpa: null });
+  });
+
+  test('blocks recruiters from updating a company owned by someone else', async () => {
+    profile = { ...profile, role: 'RECRUITER' };
+    authUser.id = 'recruiter-id';
+    profile.id = authUser.id;
+    const response = await request(app)
+      .put('/api/companies/c0000000-0000-0000-0000-000000000001')
+      .set('Authorization', 'Bearer verified-access-token')
+      .send({ name: 'Updated Company' });
+    expect(response.status).toBe(403);
+    expect(response.body.error).toMatch(/own companies/i);
+  });
+
+  test('allows a recruiter to update an owned company', async () => {
+    profile = { ...profile, role: 'RECRUITER' };
+    authUser.id = 'recruiter-id';
+    profile.id = authUser.id;
     db.query.mockImplementation((sql) => {
-      if (sql.includes('SELECT id, email, role FROM users')) return Promise.resolve({ rows: [{ id: studentId, email: 'student@example.edu', role: 'student' }] });
-      if (sql.includes('FROM students')) return Promise.resolve({ rows: [{ id: studentId, department: 'Computer Science', batch_year: 2025, cgpa: 8.5, active_backlogs: 0 }] });
-      if (sql.includes('FROM job_drives')) return Promise.resolve({ rows: [{ id: driveId, status: 'active', application_deadline: '2099-01-01', min_cgpa: 7, max_active_backlogs: 0, eligible_departments: ['Computer Science'], eligible_batch_years: [2025] }] });
+      if (sql.includes('SELECT id, email, role, full_name FROM profiles')) {
+        return Promise.resolve({ rows: [profile] });
+      }
+      if (sql.includes('SELECT id, owner_id FROM companies')) {
+        return Promise.resolve({ rows: [{ id: 'c0000000-0000-0000-0000-000000000001', owner_id: authUser.id }] });
+      }
+      if (sql.includes('UPDATE companies')) {
+        return Promise.resolve({ rows: [{ id: 'c0000000-0000-0000-0000-000000000001', name: 'Updated Company' }] });
+      }
       return Promise.resolve({ rows: [] });
     });
-    const token = jwt.sign({ id: studentId }, process.env.JWT_SECRET);
-    const response = await request(app).post('/api/applications').set('Authorization', `Bearer ${token}`).send({ driveId });
-    expect(response.status).toBe(409);
-    expect(db.query.mock.calls.some(([sql]) => sql.includes('ON CONFLICT (student_id, drive_id) DO NOTHING'))).toBe(true);
-  });
-
-  test('student profile endpoint returns the frontend profile fields', async () => {
-    const studentId = 'b0000000-0000-0000-0000-000000000001';
-    db.query.mockImplementation((sql) => {
-      if (sql.includes('SELECT id, email, role FROM users')) return Promise.resolve({ rows: [{ id: studentId, email: 'student@example.edu', role: 'student' }] });
-      return Promise.resolve({ rows: [{ id: studentId, email: 'student@example.edu', roll_number: '1AB21CS001', first_name: 'Test', last_name: 'Student', department: 'Computer Science', degree: null, batch_year: 2025, cgpa: '8.50', active_backlogs: 0 }] });
-    });
-    const token = jwt.sign({ id: studentId }, process.env.JWT_SECRET);
-    const response = await request(app).get('/api/students/profile').set('Authorization', `Bearer ${token}`);
+    const response = await request(app)
+      .put('/api/companies/c0000000-0000-0000-0000-000000000001')
+      .set('Authorization', 'Bearer verified-access-token')
+      .send({ name: 'Updated Company' });
     expect(response.status).toBe(200);
-    expect(response.body.data.usn).toBe('1AB21CS001');
-    expect(response.body.data.name).toBe('Test Student');
-    expect(response.body.data.batchYear).toBe(2025);
-  });
-
-  test('drive listing returns eligibility details in the shape the UI renders', async () => {
-    const studentId = 'b0000000-0000-0000-0000-000000000001';
-    db.query.mockImplementation((sql) => {
-      if (sql.includes('SELECT id, email, role FROM users')) return Promise.resolve({ rows: [{ id: studentId, email: 'student@example.edu', role: 'student' }] });
-      if (sql.includes('SELECT d.*')) return Promise.resolve({ rows: [{ id: 'd0000000-0000-0000-0000-000000000001', title: 'Engineer', company_name: 'Example Co', status: 'active', ctc_annual: '1000000', min_cgpa: '7', max_active_backlogs: 0, eligible_departments: ['Computer Science'], eligible_batch_years: [2025], application_deadline: '2099-01-01', job_location: 'Bengaluru' }] });
-      return Promise.resolve({ rows: [{ department: 'Computer Science', batch_year: 2025, cgpa: 8.5, active_backlogs: 0 }] });
-    });
-    const token = jwt.sign({ id: studentId }, process.env.JWT_SECRET);
-    const response = await request(app).get('/api/drives').set('Authorization', `Bearer ${token}`);
-    expect(response.status).toBe(200);
-    expect(response.body.data[0].isEligible).toBe(true);
-    expect(response.body.data[0].eligibilityReasons).toEqual([]);
-  });
-
-  test('eligible student application returns created response', async () => {
-    const studentId = 'b0000000-0000-0000-0000-000000000001';
-    const driveId = 'd0000000-0000-0000-0000-000000000001';
-    db.query.mockImplementation((sql) => {
-      if (sql.includes('SELECT id, email, role FROM users')) return Promise.resolve({ rows: [{ id: studentId, email: 'student@example.edu', role: 'student' }] });
-      if (sql.includes('FROM students')) return Promise.resolve({ rows: [{ id: studentId, department: 'Computer Science', batch_year: 2025, cgpa: 8.5, active_backlogs: 0 }] });
-      if (sql.includes('FROM job_drives')) return Promise.resolve({ rows: [{ id: driveId, status: 'active', application_deadline: '2099-01-01', min_cgpa: 7, max_active_backlogs: 0, eligible_departments: ['Computer Science'], eligible_batch_years: [2025] }] });
-      if (sql.includes('INSERT INTO applications')) return Promise.resolve({ rows: [{ id: 'application-id', student_id: studentId, drive_id: driveId, status: 'applied' }] });
-      return Promise.resolve({ rows: [] });
-    });
-    const token = jwt.sign({ id: studentId }, process.env.JWT_SECRET);
-    const response = await request(app).post('/api/applications').set('Authorization', `Bearer ${token}`).send({ driveId });
-    expect(response.status).toBe(201);
-    expect(response.body.data.status).toBe('applied');
   });
 });

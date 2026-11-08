@@ -15,6 +15,8 @@ export async function register(details) {
   });
 }
 
-export async function getCurrentUser() {
-  return apiClient('/auth/me');
+export async function getCurrentUser(accessToken) {
+  return apiClient('/auth/me', {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
 }

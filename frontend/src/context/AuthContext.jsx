@@ -1,21 +1,14 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import * as authService from '../services/authService';
+import { getCurrentUser } from '../api/auth';
 
 const AuthContext = createContext(null);
+const VALID_ROLES = ['STUDENT', 'OFFICER', 'RECRUITER', 'ADMIN'];
 
-function mapSupabaseUser(supabaseUser) {
-  const validRoles = ['student', 'officer', 'admin'];
-  const metadata = supabaseUser.user_metadata || {};
-  const role = validRoles.includes(supabaseUser.app_metadata?.role)
-    ? supabaseUser.app_metadata.role
-    : 'student';
-  const name = metadata.full_name || metadata.name || supabaseUser.email?.split('@')[0] || 'Student';
-  const user = { ...supabaseUser, name, role, usn: metadata.usn };
-  return {
-    user,
-    role,
-    profile: { ...metadata, ...user, name, email: supabaseUser.email, role },
-  };
+export function getDashboardPath(role) {
+  if (role === 'OFFICER' || role === 'ADMIN') return '/officer';
+  if (role === 'RECRUITER') return '/officer/drives';
+  return '/';
 }
 
 export function AuthProvider({ children }) {
@@ -23,38 +16,79 @@ export function AuthProvider({ children }) {
   const [role, setRole] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const sessionVersion = useRef(0);
   const requiresExplicitSignIn = useRef(
     new URLSearchParams(window.location.search).has('email_confirmed')
   );
 
-  const applySession = useCallback((session) => {
+  const applySession = useCallback(async (session) => {
     if (session?.user && requiresExplicitSignIn.current) return;
     const version = ++sessionVersion.current;
     if (!session?.user) {
+      setUser(null);
+      setRole(null);
+      setProfile(null);
+      setError(null);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    try {
+      if (!session.access_token) throw new Error('Supabase session has no access token');
+      const response = await getCurrentUser(session.access_token);
+      if (version !== sessionVersion.current) return;
+
+      const backendProfile = response.user;
+      const normalizedRole = String(backendProfile?.role || '').toUpperCase();
+      if (!backendProfile?.id || !VALID_ROLES.includes(normalizedRole)) {
+        throw new Error('The authenticated profile has no valid role');
+      }
+
+      const nextProfile = {
+        id: backendProfile.id,
+        email: backendProfile.email,
+        fullName: backendProfile.fullName,
+        role: normalizedRole,
+      };
+      setUser(nextProfile);
+      setRole(normalizedRole);
+      setProfile(nextProfile);
+      setLoading(false);
+    } catch (sessionError) {
       if (version !== sessionVersion.current) return;
       setUser(null);
       setRole(null);
       setProfile(null);
-      return;
+      setError(sessionError);
+      setLoading(false);
+      throw sessionError;
     }
-
-    const state = mapSupabaseUser(session.user);
-    setUser(state.user);
-    setRole(state.role);
-    setProfile(state.profile);
   }, []);
 
   useEffect(() => {
     let mounted = true;
+    const handleSessionError = (sessionError) => {
+      if (!mounted) return;
+      sessionVersion.current += 1;
+      setError(sessionError);
+      setUser(null);
+      setRole(null);
+      setProfile(null);
+      setLoading(false);
+    };
     const syncSession = async (session) => {
       if (mounted) await applySession(session);
     };
-    const unsubscribe = authService.onAuthStateChange((session) => { void syncSession(session); });
+    const unsubscribe = authService.onAuthStateChange((session) => {
+      void syncSession(session).catch(handleSessionError);
+    });
 
     authService.getSession()
       .then(syncSession)
-      .catch(() => syncSession(null))
+      .catch(handleSessionError)
       .finally(() => { if (mounted) setLoading(false); });
 
     return () => { mounted = false; unsubscribe(); };
@@ -63,7 +97,7 @@ export function AuthProvider({ children }) {
   const signIn = useCallback(async (credentials) => {
     const result = await authService.signIn(credentials);
     requiresExplicitSignIn.current = false;
-    applySession(result.session);
+    await applySession(result.session);
     return result;
   }, [applySession]);
 
@@ -72,13 +106,19 @@ export function AuthProvider({ children }) {
   }, []);
 
   const signOut = useCallback(async () => {
-    await authService.signOut();
-    setUser(null);
-    setRole(null);
-    setProfile(null);
+    try {
+      await authService.signOut();
+    } finally {
+      sessionVersion.current += 1;
+      setUser(null);
+      setRole(null);
+      setProfile(null);
+      setError(null);
+      setLoading(false);
+    }
   }, []);
 
-  const value = { user, role, profile, loading, signIn, signUp, signOut };
+  const value = { user, role, profile, loading, error, signIn, signUp, signOut };
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

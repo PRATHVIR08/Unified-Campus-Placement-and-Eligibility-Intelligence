@@ -31,8 +31,19 @@ const OFFICER_NAV = [
   },
 ];
 
+const RECRUITER_NAV = [
+  {
+    label: 'Management',
+    items: [
+      { to: '/officer/companies', label: 'Companies', icon: <BuildingIcon /> },
+      { to: '/officer/drives', label: 'Drive Manager', icon: <BriefcaseIcon /> },
+    ],
+  },
+];
+
 function getNavGroups(role) {
-  if (role === 'officer' || role === 'admin') return OFFICER_NAV;
+  if (role === 'RECRUITER') return RECRUITER_NAV;
+  if (role === 'OFFICER' || role === 'ADMIN') return OFFICER_NAV;
   return STUDENT_NAV;
 }
 
@@ -147,9 +158,9 @@ export default function Sidebar({ open, onClose }) {
 
   const navGroups = getNavGroups(role);
 
-  const displayName = profile?.name || user?.email?.split('@')[0] || null;
+  const displayName = profile?.fullName || user?.email?.split('@')[0] || null;
   const avatarChar  = displayName ? displayName[0].toUpperCase() : '?';
-  const displayRole = role || 'student';
+  const displayRole = role || 'STUDENT';
 
   const handleSignOut = async () => {
     try { await signOut(); } catch { /* Supabase not connected yet */ }

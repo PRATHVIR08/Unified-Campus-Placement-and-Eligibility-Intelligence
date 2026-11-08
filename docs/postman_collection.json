@@ -1,0 +1,522 @@
+{
+  "info": {
+    "name": "Campus Placement API",
+    "description": "Workflow, authorization, validation, and report checks. Provide valid Supabase access tokens and fixture ids.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5000/api", "type": "string" },
+    { "key": "studentToken", "value": "", "type": "string" },
+    { "key": "officerToken", "value": "", "type": "string" },
+    { "key": "recruiterToken", "value": "", "type": "string" },
+    { "key": "adminToken", "value": "", "type": "string" },
+    { "key": "studentId", "value": "b0000000-0000-0000-0000-000000000001", "type": "string" },
+    { "key": "driveId", "value": "d0000000-0000-0000-0000-000000000001", "type": "string" },
+    { "key": "applicationId", "value": "a0000000-0000-0000-0000-000000000001", "type": "string" },
+    { "key": "roundId", "value": "f0000000-0000-0000-0000-000000000001", "type": "string" },
+    { "key": "offerId", "value": "f0000000-0000-0000-0000-000000000002", "type": "string" },
+    { "key": "companyId", "value": "c0000000-0000-0000-0000-000000000001", "type": "string" },
+    { "key": "filterId", "value": "f0000000-0000-0000-0000-000000000003", "type": "string" },
+    { "key": "adminUserId", "value": "a0000000-0000-0000-0000-000000000001", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Current user - success",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{officerToken}}" }],
+            "url": "{{baseUrl}}/auth/me"
+          }
+        },
+        {
+          "name": "Current user - missing token 401",
+          "request": { "method": "GET", "url": "{{baseUrl}}/auth/me" }
+        }
+      ]
+    },
+    {
+      "name": "Students and filters",
+      "item": [
+        {
+          "name": "Get my profile",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{studentToken}}" }],
+            "url": "{{baseUrl}}/students/me"
+          }
+        },
+        {
+          "name": "Save profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{studentToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"department\":\"Computer Science\",\"cgpa\":8.2,\"graduationYear\":2027,\"backlogs\":0}" },
+            "url": "{{baseUrl}}/students/me"
+          }
+        },
+        {
+          "name": "List saved filters",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{studentToken}}" }],
+            "url": "{{baseUrl}}/students/me/filters"
+          }
+        },
+        {
+          "name": "Create saved filter",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{studentToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"name\":\"Python roles\",\"filter_json\":{\"skills\":\"python\",\"min_package\":8,\"active_only\":true}}" },
+            "url": "{{baseUrl}}/students/me/filters"
+          }
+        },
+        {
+          "name": "Create saved filter - invalid key 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{studentToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"name\":\"Invalid\",\"filter_json\":{\"password\":\"secret\"}}" },
+            "url": "{{baseUrl}}/students/me/filters"
+          }
+        },
+        {
+          "name": "Update saved filter",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{studentToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"name\":\"Python and SQL\",\"filter_json\":{\"skills\":\"python,sql\",\"active_only\":true}}" },
+            "url": "{{baseUrl}}/students/me/filters/{{filterId}}"
+          }
+        },
+        {
+          "name": "Delete own saved filter",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{studentToken}}" }],
+            "url": "{{baseUrl}}/students/me/filters/{{filterId}}"
+          }
+        },
+        {
+          "name": "Get skills",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{studentToken}}" }],
+            "url": "{{baseUrl}}/skills"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Companies",
+      "item": [
+        {
+          "name": "List companies",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{officerToken}}" }],
+            "url": "{{baseUrl}}/companies"
+          }
+        },
+        {
+          "name": "Create company",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{officerToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"name\":\"Postman Test Company\",\"industry\":\"Software\"}" },
+            "url": "{{baseUrl}}/companies"
+          }
+        },
+        {
+          "name": "Create company - student forbidden 403",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{studentToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"name\":\"Forbidden Company\"}" },
+            "url": "{{baseUrl}}/companies"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Drives and eligibility",
+      "item": [
+        {
+          "name": "List drives matching all skills",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{studentToken}}" }],
+            "url": "{{baseUrl}}/job-drives?skills=python,sql&page=1&limit=10"
+          }
+        },
+        {
+          "name": "Create drive with skills",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{officerToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"company_id\":\"{{companyId}}\",\"title\":\"Postman Engineer\",\"role_type\":\"Full time\",\"package_lpa\":12,\"location\":\"Bengaluru\",\"work_mode\":\"onsite\",\"application_deadline\":\"2099-12-31T23:59:59Z\",\"skills\":[\"python\",\"sql\"]}"
+            },
+            "url": "{{baseUrl}}/job-drives"
+          }
+        },
+        {
+          "name": "Create drive - unknown skill 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{officerToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"company_id\":\"{{companyId}}\",\"title\":\"Invalid Skill Drive\",\"role_type\":\"Full time\",\"package_lpa\":12,\"application_deadline\":\"2099-12-31T23:59:59Z\",\"skills\":[\"unknown-skill\"]}"
+            },
+            "url": "{{baseUrl}}/job-drives"
+          }
+        },
+        {
+          "name": "Check drive eligibility",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{studentToken}}" }],
+            "url": "{{baseUrl}}/job-drives/{{driveId}}/eligibility"
+          }
+        },
+        {
+          "name": "List drives - invalid page 400",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{officerToken}}" }],
+            "url": "{{baseUrl}}/job-drives?page=0"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Applications and interview rounds",
+      "item": [
+        {
+          "name": "Apply - success if eligible and not previously applied",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{studentToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"driveId\":\"{{driveId}}\"}" },
+            "url": "{{baseUrl}}/applications"
+          }
+        },
+        {
+          "name": "Apply - duplicate 409",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{studentToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"driveId\":\"{{driveId}}\"}" },
+            "url": "{{baseUrl}}/applications"
+          }
+        },
+        {
+          "name": "Update application status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{officerToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"status\":\"SHORTLISTED\"}" },
+            "url": "{{baseUrl}}/applications/{{applicationId}}/status"
+          }
+        },
+        {
+          "name": "Invalid application status transition - 422",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{officerToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"status\":\"ACCEPTED\"}" },
+            "url": "{{baseUrl}}/applications/{{applicationId}}/status"
+          }
+        },
+        {
+          "name": "List application interview rounds",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{officerToken}}" }],
+            "url": "{{baseUrl}}/applications/{{applicationId}}/interview-rounds"
+          }
+        },
+        {
+          "name": "Add interview round",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{officerToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"roundNumber\":1,\"name\":\"Technical\",\"roundType\":\"technical\",\"scheduledAt\":\"2099-10-10T10:00:00Z\"}" },
+            "url": "{{baseUrl}}/applications/{{applicationId}}/interview-rounds"
+          }
+        },
+        {
+          "name": "Add duplicate round - 409",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{officerToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"roundNumber\":1,\"name\":\"Duplicate\",\"roundType\":\"technical\"}" },
+            "url": "{{baseUrl}}/applications/{{applicationId}}/interview-rounds"
+          }
+        },
+        {
+          "name": "Record round failure",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{officerToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"result\":\"FAILED\",\"feedback\":\"Did not pass\",\"score\":42}" },
+            "url": "{{baseUrl}}/interview-rounds/{{roundId}}"
+          }
+        },
+        {
+          "name": "Student cannot add interview round - 403",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{studentToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"roundNumber\":1,\"name\":\"Unauthorized\",\"roundType\":\"technical\"}" },
+            "url": "{{baseUrl}}/applications/{{applicationId}}/interview-rounds"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Offers",
+      "item": [
+        {
+          "name": "Create offer",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{officerToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"ctc\":1200000}" },
+            "url": "{{baseUrl}}/applications/{{applicationId}}/offers"
+          }
+        },
+        {
+          "name": "Create second offer - 409",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{officerToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"ctc\":1300000}" },
+            "url": "{{baseUrl}}/applications/{{applicationId}}/offers"
+          }
+        },
+        {
+          "name": "List my offers",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{studentToken}}" }],
+            "url": "{{baseUrl}}/offers/me"
+          }
+        },
+        {
+          "name": "Accept own offer",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{studentToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"status\":\"ACCEPTED\"}" },
+            "url": "{{baseUrl}}/offers/{{offerId}}/status"
+          }
+        },
+        {
+          "name": "Accept another offer after limit - 422",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{studentToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"status\":\"ACCEPTED\"}" },
+            "url": "{{baseUrl}}/offers/{{offerId}}/status"
+          }
+        },
+        {
+          "name": "Staff withdraw offer",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"status\":\"WITHDRAWN\"}" },
+            "url": "{{baseUrl}}/offers/{{offerId}}/status"
+          }
+        },
+        {
+          "name": "Student cannot withdraw offer - 403",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{studentToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"status\":\"WITHDRAWN\"}" },
+            "url": "{{baseUrl}}/offers/{{offerId}}/status"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reports",
+      "item": [
+        {
+          "name": "Placement summary",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{officerToken}}" }],
+            "url": "{{baseUrl}}/reports/placement-summary"
+          }
+        },
+        {
+          "name": "Placement summary CSV",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{officerToken}}" }],
+            "url": "{{baseUrl}}/reports/placement-summary?format=csv"
+          }
+        },
+        {
+          "name": "Department placement view",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{officerToken}}" }],
+            "url": "{{baseUrl}}/reports/department-placement"
+          }
+        },
+        {
+          "name": "Drive funnel view CSV",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": "{{baseUrl}}/reports/drive-funnel?format=csv"
+          }
+        },
+        {
+          "name": "Upcoming deadlines",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{officerToken}}" }],
+            "url": "{{baseUrl}}/reports/upcoming-deadlines"
+          }
+        },
+        {
+          "name": "Unknown report - 404",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{officerToken}}" }],
+            "url": "{{baseUrl}}/reports/not-a-view"
+          }
+        },
+        {
+          "name": "Student report forbidden - 403",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{studentToken}}" }],
+            "url": "{{baseUrl}}/reports/placement-summary"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "Search users",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": "{{baseUrl}}/admin/users?page=1&limit=25&search=student"
+          }
+        },
+        {
+          "name": "Promote user",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"role\":\"OFFICER\"}" },
+            "url": "{{baseUrl}}/admin/users/{{adminUserId}}/role"
+          }
+        },
+        {
+          "name": "Student cannot search users - 403",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{studentToken}}" }],
+            "url": "{{baseUrl}}/admin/users"
+          }
+        },
+        {
+          "name": "Invalid role - 400",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"role\":\"SUPERUSER\"}" },
+            "url": "{{baseUrl}}/admin/users/{{adminUserId}}/role"
+          }
+        }
+      ]
+    }
+  ]
+}

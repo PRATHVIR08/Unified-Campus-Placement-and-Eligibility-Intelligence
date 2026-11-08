@@ -7,7 +7,7 @@ import PageHeader from '../../components/PageHeader';
 import Button from '../../components/Button';
 import ErrorState from '../../components/ErrorState';
 import { StatsSkeleton } from '../../components/Skeleton';
-import { fetchAllDrives } from '../../api/drives';
+import { fetchAllStudentDrives } from '../../api/drives';
 import { fetchMyApplications } from '../../api/applications';
 
 function useStudentStats() {
@@ -20,8 +20,8 @@ function useStudentStats() {
     setLoading(true);
     setError(null);
     try {
-      const [d, a] = await Promise.all([fetchAllDrives(), fetchMyApplications()]);
-      setDrives(d?.data || d || []);
+      const [d, a] = await Promise.all([fetchAllStudentDrives(), fetchMyApplications()]);
+      setDrives(d);
       setApplications(a?.data || a || []);
     } catch (err) {
       setError(err.message);
@@ -39,7 +39,7 @@ export default function StudentDashboard() {
   const navigate = useNavigate();
   const { drives, applications, loading, error, retry } = useStudentStats();
 
-  const firstName = profile?.name?.split(' ')[0] || null;
+  const firstName = profile?.fullName?.split(' ')[0] || null;
 
   const totalDrives     = drives?.length ?? 0;
   const eligibleDrives  = drives?.filter(d => d.isEligible)?.length ?? 0;

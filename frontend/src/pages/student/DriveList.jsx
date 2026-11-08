@@ -10,7 +10,8 @@ import EmptyState from '../../components/EmptyState';
 import ErrorState from '../../components/ErrorState';
 import { TableSkeleton } from '../../components/Skeleton';
 import Input from '../../components/Input';
-import { fetchAllDrives } from '../../api/drives';
+import { fetchAllStudentDrives } from '../../api/drives';
+import { getEligibilityReasonMessages } from '../../utils/eligibility';
 
 /* ---- Filter panel ----------------------------------------------- */
 function FilterPanel({ filters, onChange, onApply, onReset }) {
@@ -113,6 +114,11 @@ const EMPTY_FILTERS = { keyword: '', skills: [], minPackage: '', location: '', e
 /* ---- Drive card ------------------------------------------------- */
 function DriveCard({ drive, onViewDetails }) {
   const eligibleStatus = drive.isEligible ? 'eligible' : 'not eligible';
+  const deadlinePassed = drive.applicationDeadline &&
+    new Date(drive.applicationDeadline).getTime() <= Date.now();
+  const eligibilityReasons = getEligibilityReasonMessages(
+    drive.eligibilityReasons || drive.eligibility_reasons
+  );
   const ctc = drive.ctcAnnual
     ? `₹${(drive.ctcAnnual / 100000).toFixed(1)} LPA`
     : drive.ctc || null;
@@ -137,11 +143,17 @@ function DriveCard({ drive, onViewDetails }) {
         )}
         {drive.applicationDeadline && (
           <span className="chip">
-            Deadline: {new Date(drive.applicationDeadline).toLocaleDateString()}
+            {deadlinePassed ? 'Applications closed' : 'Deadline'}: {new Date(drive.applicationDeadline).toLocaleDateString()}
           </span>
         )}
         {drive.location && <span className="chip">{drive.location}</span>}
       </div>
+
+      {eligibilityReasons.length > 0 && (
+        <ul aria-label="Eligibility reasons" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)', margin: 0, paddingLeft: 'var(--space-4)', fontSize: 'var(--font-size-sm)', color: 'var(--color-text-muted)' }}>
+          {eligibilityReasons.map((reason, index) => <li key={index}>{reason}</li>)}
+        </ul>
+      )}
 
       <div style={{ marginTop: 'auto', paddingTop: 'var(--space-2)' }}>
         <Button
@@ -179,8 +191,8 @@ export default function DriveList() {
       if (f.location)    params.set('location', f.location);
       if (f.eligibleOnly) params.set('eligibleOnly', '1');
 
-      const res = await fetchAllDrives(params);
-      setDrives(res?.data || res || []);
+      const result = await fetchAllStudentDrives(params);
+      setDrives(result);
     } catch (err) {
       setError(err.message);
     } finally {

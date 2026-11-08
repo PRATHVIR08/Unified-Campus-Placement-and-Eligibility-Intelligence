@@ -10,6 +10,7 @@ import Skeleton from '../../components/Skeleton';
 import EmptyState from '../../components/EmptyState';
 import { fetchDriveById } from '../../api/drives';
 import { applyForDrive } from '../../api/applications';
+import { getEligibilityReasonMessages } from '../../utils/eligibility';
 
 export default function DriveDetails() {
   const { id } = useParams();
@@ -82,7 +83,11 @@ export default function DriveDetails() {
     : drive.ctc || '—';
 
   const eligibleStatus = drive.isEligible ? 'eligible' : 'not eligible';
-  const eligibilityReasons = drive.eligibilityReasons || drive.eligibility_reasons || [];
+  const eligibilityReasons = getEligibilityReasonMessages(
+    drive.eligibilityReasons || drive.eligibility_reasons
+  );
+  const deadlinePassed = drive.applicationDeadline &&
+    new Date(drive.applicationDeadline).getTime() <= Date.now();
 
   return (
     <div>
@@ -130,20 +135,12 @@ export default function DriveDetails() {
                 Eligibility Check
               </h3>
               <ul style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-                {eligibilityReasons.map((r, i) => (
+                {eligibilityReasons.map((reason, i) => (
                   <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-2)', fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)' }}>
-                    {r.passed ? (
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0, marginTop: 2, color: 'var(--color-text-primary)' }} aria-hidden="true">
-                        <polyline points="20 6 9 17 4 12" />
-                      </svg>
-                    ) : (
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0, marginTop: 2, color: 'var(--color-text-muted)' }} aria-hidden="true">
-                        <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                      </svg>
-                    )}
-                    <span style={{ color: r.passed ? 'var(--color-text-secondary)' : 'var(--color-text-muted)' }}>
-                      {r.message || r.reason}
-                    </span>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0, marginTop: 2, color: 'var(--color-text-muted)' }} aria-hidden="true">
+                      <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                    <span style={{ color: 'var(--color-text-muted)' }}>{reason}</span>
                   </li>
                 ))}
               </ul>
@@ -167,9 +164,9 @@ export default function DriveDetails() {
               variant="primary"
               onClick={handleApply}
               loading={applying}
-              disabled={drive.isEligible === false || !!applyMsg}
+              disabled={drive.isEligible === false || !!applyMsg || deadlinePassed}
             >
-              {applying ? 'Applying…' : drive.isEligible ? 'Apply for this drive' : 'Not eligible'}
+              {applying ? 'Applying…' : deadlinePassed ? 'Applications closed' : drive.isEligible ? 'Apply for this drive' : 'Not eligible'}
             </Button>
           )}
         </div>

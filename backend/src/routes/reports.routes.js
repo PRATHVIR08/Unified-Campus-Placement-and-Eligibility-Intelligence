@@ -5,8 +5,10 @@ const reportsController = require('../controllers/reports.controller');
 const requireAuth = require('../middleware/requireAuth');
 const requireRole = require('../middleware/requireRole');
 
-router.get('/department-summary', requireAuth, requireRole('officer'), reportsController.getDepartmentSummary);
-router.get('/funnel-metrics', requireAuth, requireRole('officer'), reportsController.getFunnelMetrics);
-router.get('/export/drive/:driveId', requireAuth, requireRole('officer'), reportsController.exportDriveApplicantsCsv);
+router.get('/department-summary', requireAuth, requireRole('OFFICER', 'ADMIN'), reportsController.getDepartmentSummary);
+router.get('/funnel-metrics', requireAuth, requireRole('OFFICER', 'ADMIN'), reportsController.getFunnelMetrics);
+router.get('/placement-summary', requireAuth, requireRole('OFFICER', 'ADMIN'), reportsController.getPlacementSummary);
+router.get('/export/drive/:driveId', requireAuth, requireRole('OFFICER', 'ADMIN'), reportsController.exportDriveApplicantsCsv);
+router.get('/:name', requireAuth, requireRole('OFFICER', 'ADMIN'), reportsController.getNamedReport);
 
 module.exports = router;

@@ -2,7 +2,7 @@
 // Redirects unauthenticated users to /login and shows a spinner while loading.
 import React from 'react';
 import { Navigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { getDashboardPath, useAuth } from '../context/AuthContext';
 import Spinner from './Spinner';
 
 /**
@@ -25,8 +25,7 @@ export default function ProtectedRoute({ children, allowedRoles = [] }) {
   }
 
   if (allowedRoles.length > 0 && !allowedRoles.includes(role)) {
-    // Role mismatch — redirect to root which will go to the correct dashboard
-    return <Navigate to="/" replace />;
+    return <Navigate to={getDashboardPath(role)} replace />;
   }
 
   return children;

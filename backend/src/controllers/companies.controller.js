@@ -1,4 +1,7 @@
 const db = require('../db/pool');
+const companiesService = require('../services/companies.service');
+const AppError = require('../utils/AppError');
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 exports.getAllCompanies = async (req, res, next) => {
   try {
@@ -32,4 +35,54 @@ exports.getCompanyById = async (req, res, next) => {
     if (!result.rows.length) return res.status(404).json({ success: false, error: 'Company not found' });
     return res.json({ success: true, data: result.rows[0] });
   } catch (error) { return next(error); }
+};
+
+exports.listManagedCompanies = async (req, res, next) => {
+  try {
+    return res.json({ success: true, data: await companiesService.list() });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+exports.getManagedCompany = async (req, res, next) => {
+  if (!UUID.test(req.params.id)) return next(new AppError(400, 'Invalid company id'));
+  try {
+    const company = await companiesService.getById(req.params.id);
+    if (!company) throw new AppError(404, 'Company not found');
+    return res.json({ success: true, data: company });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+exports.createManagedCompany = async (req, res, next) => {
+  try {
+    return res.status(201).json({
+      success: true,
+      data: await companiesService.create(req.body, req.user),
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+exports.updateManagedCompany = async (req, res, next) => {
+  if (!UUID.test(req.params.id)) return next(new AppError(400, 'Invalid company id'));
+  try {
+    const company = await companiesService.update(req.params.id, req.body, req.user);
+    return res.json({ success: true, data: company });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+exports.deleteManagedCompany = async (req, res, next) => {
+  if (!UUID.test(req.params.id)) return next(new AppError(400, 'Invalid company id'));
+  try {
+    await companiesService.remove(req.params.id, req.user);
+    return res.status(204).end();
+  } catch (error) {
+    return next(error);
+  }
 };

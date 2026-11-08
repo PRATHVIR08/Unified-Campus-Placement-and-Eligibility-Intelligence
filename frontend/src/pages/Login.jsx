@@ -71,7 +71,7 @@ const FEATURES = [
 
 /* ---- Login form ------------------------------------------------- */
 function LoginForm({ registrationNotice }) {
-  const { signIn } = useAuth();
+  const { signIn, error: authError } = useAuth();
   const [fields, setFields]     = useState({ email: '', password: '' });
   const [touched, setTouched]   = useState({});
   const [errors, setErrors]     = useState({});
@@ -157,9 +157,9 @@ function LoginForm({ registrationNotice }) {
         />
       </div>
 
-      {formError && (
+      {(formError || authError) && (
         <div className="alert alert-error" role="alert" style={{ marginBottom: 'var(--space-4)' }}>
-          {formError}
+          {formError || authError.message}
         </div>
       )}
 

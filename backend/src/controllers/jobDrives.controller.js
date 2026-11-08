@@ -1,129 +1,126 @@
-const db = require('../db/pool');
-const { evaluateEligibility } = require('../services/eligibilityService');
+const AppError = require('../utils/AppError');
+const jobDrivesService = require('../services/jobDrives.service');
+const applicationService = require('../services/applicationService');
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const SELECT = `SELECT d.*, c.name AS company_name, c.industry AS company_industry,
-  c.website AS company_website FROM job_drives d JOIN companies c ON c.id = d.company_id`;
 
-function shape(row, eligibility) {
+function parseFilters(query) {
+  const minPackage = query.min_package ?? query.minPackage;
+  const activeOnly = query.active_only;
+  const eligibleOnly = query.eligible_only ?? query.eligibleOnly;
+  const skillsQuery = query.skills;
+  for (const [name, value] of Object.entries({
+    role_type: query.role_type ?? query.roleType,
+    location: query.location,
+    work_mode: query.work_mode ?? query.workMode,
+    q: query.q ?? query.keyword,
+  })) {
+    if (value !== undefined && (typeof value !== 'string' || value.length > 200)) {
+      throw new AppError(400, `${name} must be a string no longer than 200 characters`);
+    }
+  }
+  if (minPackage !== undefined && (typeof minPackage !== 'string' || !minPackage.trim() ||
+      !Number.isFinite(Number(minPackage)) || Number(minPackage) < 0)) {
+    throw new AppError(400, 'min_package must be a non-negative number');
+  }
+  if (activeOnly !== undefined && (typeof activeOnly !== 'string' ||
+      !['true', 'false', '1', '0'].includes(activeOnly.toLowerCase()))) {
+    throw new AppError(400, 'active_only must be true, false, 1, or 0');
+  }
+  if (eligibleOnly !== undefined && (typeof eligibleOnly !== 'string' ||
+      !['true', 'false', '1', '0'].includes(eligibleOnly.toLowerCase()))) {
+    throw new AppError(400, 'eligible_only must be true, false, 1, or 0');
+  }
+  if (skillsQuery !== undefined && (typeof skillsQuery !== 'string' ||
+      skillsQuery.length > 1000 || !skillsQuery.split(',').every((skill) => skill.trim()))) {
+    throw new AppError(400, 'skills must be a comma-separated list of skill names');
+  }
+  const page = query.page === undefined ? 1 : Number(query.page);
+  const limit = query.limit === undefined ? 25 : Number(query.limit);
+  if (!Number.isInteger(page) || page < 1 || !Number.isInteger(limit) || limit < 1 || limit > 100) {
+    throw new AppError(400, 'page must be positive and limit must be between 1 and 100');
+  }
   return {
-    ...row,
-    companyName: row.company_name,
-    ctcAnnual: Number(row.ctc_annual),
-    minCgpa: Number(row.min_cgpa),
-    maxActiveBacklogs: row.max_active_backlogs,
-    eligibleDepartments: row.eligible_departments,
-    eligibleBatchYears: row.eligible_batch_years,
-    applicationDeadline: row.application_deadline,
-    location: row.job_location,
-    ...(eligibility || {}),
+    role_type: query.role_type ?? query.roleType,
+    location: query.location,
+    work_mode: query.work_mode ?? query.workMode,
+    min_package: minPackage === undefined ? undefined : Number(minPackage),
+    q: query.q ?? query.keyword,
+    active_only: activeOnly === undefined
+      ? false
+      : ['true', '1'].includes(activeOnly.toLowerCase()),
+    eligible_only: eligibleOnly === undefined
+      ? false
+      : ['true', '1'].includes(eligibleOnly.toLowerCase()),
+    skills: skillsQuery === undefined
+      ? undefined
+      : [...new Set(skillsQuery.split(',').map((skill) => skill.trim().toLowerCase()))],
+    page,
+    limit,
   };
 }
 
-async function studentFor(userId) {
-  const result = await db.query('SELECT department, batch_year, cgpa, active_backlogs FROM students WHERE id = $1', [userId]);
-  return result.rows[0];
+function assertUuid(value, label) {
+  if (!UUID.test(value || '')) throw new AppError(400, `Invalid ${label}`);
 }
 
-function validDrive(body) {
-  return typeof body.title === 'string' && body.title.trim() && UUID.test(body.companyId || '') &&
-    Number.isFinite(Number(body.ctcAnnual)) && Number(body.ctcAnnual) > 0 &&
-    Number.isFinite(Number(body.minCgpa ?? 6)) && Number(body.minCgpa ?? 6) >= 0 && Number(body.minCgpa ?? 6) <= 10 &&
-    Number.isInteger(Number(body.maxActiveBacklogs ?? 0)) && Number(body.maxActiveBacklogs ?? 0) >= 0 &&
-    Array.isArray(body.eligibleDepartments) && body.eligibleDepartments.every((department) => typeof department === 'string' && department.trim()) &&
-    Array.isArray(body.eligibleBatchYears) &&
-    body.eligibleBatchYears.every((year) => Number.isInteger(Number(year))) &&
-    !Number.isNaN(Date.parse(body.applicationDeadline));
+function asyncHandler(handler) {
+  return (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
 }
 
-exports.getAllDrives = async (req, res, next) => {
-  try {
-    const params = [];
-    const conditions = req.user.role === 'student' ? ["d.status = 'active'"] : [];
-    if (req.query.keyword) { params.push(`%${req.query.keyword}%`); conditions.push(`(d.title ILIKE $${params.length} OR c.name ILIKE $${params.length})`); }
-    if (req.query.location) { params.push(`%${req.query.location}%`); conditions.push(`d.job_location ILIKE $${params.length}`); }
-    if (req.query.minPackage) {
-      const minPackage = Number(req.query.minPackage);
-      if (!Number.isFinite(minPackage) || minPackage < 0) return res.status(400).json({ success: false, error: 'minPackage must be a non-negative number' });
-      params.push(minPackage * 100000); conditions.push(`d.ctc_annual >= $${params.length}`);
-    }
-    const where = conditions.length ? ` WHERE ${conditions.join(' AND ')}` : '';
-    const result = await db.query(`${SELECT}${where} ORDER BY d.created_at DESC`, params);
-    const student = req.user.role === 'student' ? await studentFor(req.user.id) : null;
-    const data = result.rows.map((row) => {
-      const eligibility = student ? evaluateEligibility(student, row) : null;
-      return shape(row, eligibility ? {
-        isEligible: eligibility.isEligible,
-        eligibilityReasons: eligibility.reasons.map((message) => ({ passed: false, message })),
-      } : null);
-    }).filter((drive) => req.query.eligibleOnly !== '1' || drive.isEligible);
-    return res.json({ success: true, data });
-  } catch (error) { return next(error); }
-};
+exports.getAllDrives = asyncHandler(async (req, res) => {
+  const result = await jobDrivesService.list(parseFilters(req.query), req.user);
+  return res.json({ success: true, ...result });
+});
 
-exports.getDriveById = async (req, res, next) => {
-  if (!UUID.test(req.params.id)) return res.status(400).json({ success: false, error: 'Invalid drive id' });
-  try {
-    const studentOnly = req.user.role === 'student' ? " AND d.status = 'active'" : '';
-    const result = await db.query(`${SELECT} WHERE d.id = $1${studentOnly}`, [req.params.id]);
-    if (!result.rows.length) return res.status(404).json({ success: false, error: 'Drive not found' });
-    const student = req.user.role === 'student' ? await studentFor(req.user.id) : null;
-    const eligibility = student ? evaluateEligibility(student, result.rows[0]) : null;
-    return res.json({ success: true, data: shape(result.rows[0], eligibility ? {
-      isEligible: eligibility.isEligible,
-      eligibilityReasons: eligibility.reasons.map((message) => ({ passed: false, message })),
-    } : null) });
-  } catch (error) { return next(error); }
-};
+exports.getDriveById = asyncHandler(async (req, res) => {
+  assertUuid(req.params.id, 'job drive id');
+  const data = await jobDrivesService.getById(req.params.id, req.user);
+  return res.json({ success: true, data });
+});
 
-exports.createDrive = async (req, res, next) => {
-  const body = req.body || {};
-  if (!validDrive(body)) return res.status(400).json({ success: false, error: 'Invalid drive details' });
-  try {
-    const result = await db.query(
-      `INSERT INTO job_drives (company_id, title, role_description, job_location, ctc_annual,
-       min_cgpa, max_active_backlogs, eligible_departments, eligible_batch_years, application_deadline, status)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-       RETURNING *`,
-      [body.companyId, body.title.trim(), body.roleDescription || null, body.location || null,
-        Number(body.ctcAnnual), Number(body.minCgpa ?? 6), Number(body.maxActiveBacklogs ?? 0),
-        body.eligibleDepartments, body.eligibleBatchYears.map(Number), body.applicationDeadline, body.status === 'active' ? 'active' : 'draft']
-    );
-    const company = await db.query('SELECT name FROM companies WHERE id = $1', [body.companyId]);
-    return res.status(201).json({ success: true, data: shape({ ...result.rows[0], company_name: company.rows[0]?.name }) });
-  } catch (error) { return next(error); }
-};
+exports.getEligibility = asyncHandler(async (req, res) => {
+  assertUuid(req.params.id, 'job drive id');
+  const result = await jobDrivesService.getEligibility(req.user.id, req.params.id);
+  return res.json(result);
+});
 
-exports.updateDrive = async (req, res, next) => {
-  if (!UUID.test(req.params.id)) return res.status(400).json({ success: false, error: 'Invalid drive id' });
-  const body = req.body || {};
-  const allowed = { title: 'title', roleDescription: 'role_description', location: 'job_location', ctcAnnual: 'ctc_annual', minCgpa: 'min_cgpa', maxActiveBacklogs: 'max_active_backlogs', eligibleDepartments: 'eligible_departments', eligibleBatchYears: 'eligible_batch_years', applicationDeadline: 'application_deadline' };
-  const sets = []; const params = [];
-  for (const [key, column] of Object.entries(allowed)) {
-    if (body[key] === undefined) continue;
-    if (['title', 'roleDescription', 'location'].includes(key) && typeof body[key] !== 'string') return res.status(400).json({ success: false, error: `Invalid ${key}` });
-    if (key === 'ctcAnnual' && (!Number.isFinite(Number(body[key])) || Number(body[key]) <= 0)) return res.status(400).json({ success: false, error: 'ctcAnnual must be greater than zero' });
-    if (key === 'minCgpa' && (!Number.isFinite(Number(body[key])) || Number(body[key]) < 0 || Number(body[key]) > 10)) return res.status(400).json({ success: false, error: 'minCgpa must be between 0 and 10' });
-    if (key === 'maxActiveBacklogs' && (!Number.isInteger(Number(body[key])) || Number(body[key]) < 0)) return res.status(400).json({ success: false, error: 'maxActiveBacklogs must be a non-negative integer' });
-    if (key === 'eligibleDepartments' && (!Array.isArray(body[key]) || !body[key].every((item) => typeof item === 'string'))) return res.status(400).json({ success: false, error: 'eligibleDepartments must be an array of strings' });
-    if (key === 'eligibleBatchYears' && (!Array.isArray(body[key]) || !body[key].every((year) => Number.isInteger(Number(year))))) return res.status(400).json({ success: false, error: 'eligibleBatchYears must be an array of years' });
-    if (key === 'applicationDeadline' && Number.isNaN(Date.parse(body[key]))) return res.status(400).json({ success: false, error: 'applicationDeadline must be a valid date' });
-    params.push(key === 'eligibleBatchYears' ? body[key].map(Number) : body[key]);
-    sets.push(`${column} = $${params.length}`);
-  }
-  if (!sets.length) return res.status(400).json({ success: false, error: 'No supported drive fields supplied' });
-  try {
-    params.push(req.params.id);
-    const result = await db.query(`UPDATE job_drives SET ${sets.join(', ')} WHERE id = $${params.length} RETURNING *`, params);
-    if (!result.rows.length) return res.status(404).json({ success: false, error: 'Drive not found' });
-    return res.json({ success: true, data: result.rows[0] });
-  } catch (error) { return next(error); }
-};
+exports.createDrive = asyncHandler(async (req, res) => {
+  const data = await jobDrivesService.create(req.body || {}, req.user);
+  return res.status(201).json({ success: true, data });
+});
 
-exports.updateDriveStatus = async (req, res, next) => {
-  if (!['draft', 'active', 'closed', 'completed'].includes(req.body?.status)) return res.status(400).json({ success: false, error: 'Invalid drive status' });
-  try {
-    const result = await db.query('UPDATE job_drives SET status = $1 WHERE id = $2 RETURNING *', [req.body.status, req.params.id]);
-    if (!result.rows.length) return res.status(404).json({ success: false, error: 'Drive not found' });
-    return res.json({ success: true, data: result.rows[0] });
-  } catch (error) { return next(error); }
-};
+exports.updateDrive = asyncHandler(async (req, res) => {
+  assertUuid(req.params.id, 'job drive id');
+  const data = await jobDrivesService.update(req.params.id, req.body || {}, req.user);
+  return res.json({ success: true, data });
+});
+
+exports.updateDriveStatus = asyncHandler(async (req, res) => {
+  assertUuid(req.params.id, 'job drive id');
+  const data = await jobDrivesService.update(req.params.id, { status: req.body?.status }, req.user);
+  return res.json({ success: true, data });
+});
+
+exports.deleteDrive = asyncHandler(async (req, res) => {
+  assertUuid(req.params.id, 'job drive id');
+  await jobDrivesService.remove(req.params.id, req.user);
+  return res.status(204).end();
+});
+
+exports.getDriveApplications = asyncHandler(async (req, res) => {
+  assertUuid(req.params.id, 'job drive id');
+  const data = await jobDrivesService.listApplicants(req.params.id, req.user);
+  return res.json({ success: true, data });
+});
+
+exports.applyToDrive = asyncHandler(async (req, res) => {
+  assertUuid(req.params.id, 'job drive id');
+  const data = await applicationService.applyToDrive(req.params.id, req.user.id);
+  return res.status(201).json({ success: true, data });
+});
+
+exports.applyToDriveLegacy = asyncHandler(async (req, res) => {
+  assertUuid(req.body?.driveId, 'job drive id');
+  const data = await applicationService.applyToDrive(req.body.driveId, req.user.id);
+  return res.status(201).json({ success: true, data });
+});

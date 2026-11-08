@@ -2,10 +2,11 @@
 // Root router — keeps all existing route paths intact.
 import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { AuthProvider, getDashboardPath, useAuth } from './context/AuthContext';
 import { ToastProvider } from './components/Toast';
 import Spinner from './components/Spinner';
 import Sidebar from './components/Sidebar';
+import ProtectedRoute from './components/ProtectedRoute';
 
 // Pages — student
 import Login          from './pages/Login';
@@ -20,12 +21,14 @@ import OfficerDashboard from './pages/officer/OfficerDashboard';
 import Companies        from './pages/officer/Companies';
 import DriveManage      from './pages/officer/DriveManage';
 
+const STUDENT = ['STUDENT'];
+const DRIVE_MANAGERS = ['OFFICER', 'ADMIN', 'RECRUITER'];
+const STAFF = ['OFFICER', 'ADMIN'];
+
 /* ---- Authenticated app layout ----------------------------------- */
 function AuthenticatedLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { role } = useAuth();
-
-  const isOfficer = role === 'officer' || role === 'admin';
 
   return (
     <div className="app-layout">
@@ -53,19 +56,18 @@ function AuthenticatedLayout() {
         <div className="content-body">
           <Routes>
             {/* Student routes */}
-            <Route path="/"            element={<StudentDashboard />} />
-            <Route path="/drives"      element={<DriveList />} />
-            <Route path="/drives/:id"  element={<DriveDetails />} />
-            <Route path="/applications"element={<MyApplications />} />
-            <Route path="/profile"     element={<Profile />} />
+            <Route path="/" element={<ProtectedRoute allowedRoles={STUDENT}><StudentDashboard /></ProtectedRoute>} />
+            <Route path="/drives" element={<ProtectedRoute allowedRoles={STUDENT}><DriveList /></ProtectedRoute>} />
+            <Route path="/drives/:id" element={<ProtectedRoute allowedRoles={STUDENT}><DriveDetails /></ProtectedRoute>} />
+            <Route path="/applications" element={<ProtectedRoute allowedRoles={STUDENT}><MyApplications /></ProtectedRoute>} />
+            <Route path="/profile" element={<ProtectedRoute allowedRoles={STUDENT}><Profile /></ProtectedRoute>} />
 
-            {/* Officer routes */}
-            <Route path="/officer"                 element={<OfficerDashboard />} />
-            <Route path="/officer/companies"        element={<Companies />} />
-            <Route path="/officer/drives"           element={<DriveManage />} />
+            {/* Staff and recruiter management routes */}
+            <Route path="/officer" element={<ProtectedRoute allowedRoles={STAFF}><OfficerDashboard /></ProtectedRoute>} />
+            <Route path="/officer/companies" element={<ProtectedRoute allowedRoles={DRIVE_MANAGERS}><Companies /></ProtectedRoute>} />
+            <Route path="/officer/drives" element={<ProtectedRoute allowedRoles={DRIVE_MANAGERS}><DriveManage /></ProtectedRoute>} />
 
-            {/* Fallback */}
-            <Route path="*" element={<Navigate to={isOfficer ? '/officer' : '/'} replace />} />
+            <Route path="*" element={<Navigate to={getDashboardPath(role)} replace />} />
           </Routes>
         </div>
       </div>

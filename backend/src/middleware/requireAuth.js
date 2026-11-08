@@ -1,76 +1,57 @@
-const jwt = require('jsonwebtoken');
+require('../config/env');
 const { createClient } = require('@supabase/supabase-js');
 const db = require('../db/pool');
+const AppError = require('../utils/AppError');
 
 let supabase;
+
 function getSupabase() {
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY;
-  if (!url || !key || !/^https:\/\//i.test(url) || /your-project|placeholder/i.test(url) || /your-|placeholder/i.test(key)) return null;
-  if (!supabase) supabase = createClient(url, key);
+  const { supabaseUrl, supabaseServiceKey } = require('../config/env');
+  if (!supabaseUrl || !supabaseServiceKey) {
+    throw new AppError(500, 'Supabase authentication is not configured: set SUPABASE_URL and SUPABASE_SERVICE_KEY in backend/.env');
+  }
+  if (!supabase) supabase = createClient(supabaseUrl, supabaseServiceKey);
   return supabase;
 }
 
 async function requireAuth(req, res, next) {
-  const authorization = req.headers.authorization || '';
-  const match = authorization.match(/^Bearer\s+(\S+)$/i);
-  if (!match) {
-    return res.status(401).json({ success: false, error: 'Bearer token required' });
-  }
+  const match = (req.headers.authorization || '').match(/^Bearer\s+(\S+)$/i);
+  if (!match) return next(new AppError(401, 'A Supabase bearer token is required'));
 
   try {
-    const token = match[1];
-    let identity;
+    const { data, error } = await getSupabase().auth.getUser(match[1]);
+    if (error || !data.user) throw new AppError(401, 'Invalid or expired Supabase access token');
 
-    // The current backend login issues local JWTs. Otherwise validate the access
-    // token with Supabase. Role is always loaded from PostgreSQL below.
-    if (process.env.JWT_SECRET && !/your_|change_in_production|placeholder/i.test(process.env.JWT_SECRET)) {
-      try {
-        const claims = jwt.verify(token, process.env.JWT_SECRET);
-        if (claims.id) identity = { id: claims.id };
-      } catch (_) { /* Supabase access token may be the supplied token. */ }
-    }
+    const authUser = data.user;
+    const metadata = authUser.user_metadata || {};
+    const fullName = metadata.full_name || metadata.name || authUser.email || 'Student';
+    const usn = typeof metadata.usn === 'string' && metadata.usn.trim()
+      ? metadata.usn.trim().toUpperCase()
+      : null;
 
-    if (!identity) {
-      const verified = await verifySupabaseUser(token);
-      if (!verified.user) return res.status(verified.status).json({ success: false, error: verified.message });
-      identity = { id: verified.user.id };
-    }
-
-    const result = await db.query(
-      'SELECT id, email, role FROM users WHERE id = $1',
-      [identity.id]
+    await db.query(
+      `INSERT INTO profiles (id, full_name, email, usn, role)
+       VALUES ($1, $2, $3, $4, 'STUDENT')
+       ON CONFLICT (id) DO NOTHING`,
+      [authUser.id, fullName, authUser.email || null, usn]
     );
-    if (!result.rows.length) {
-      return res.status(401).json({ success: false, error: 'Account is not registered in this application' });
-    }
-    req.user = result.rows[0];
+    const result = await db.query(
+      'SELECT id, email, role, full_name FROM profiles WHERE id = $1',
+      [authUser.id]
+    );
+    if (!result.rows.length) throw new AppError(401, 'Authenticated profile could not be loaded');
+
+    const profile = result.rows[0];
+    req.user = {
+      id: profile.id,
+      email: profile.email,
+      role: profile.role.toLowerCase(),
+      fullName: profile.full_name,
+    };
     return next();
   } catch (error) {
     return next(error);
   }
 }
 
-async function verifySupabaseUser(token) {
-  const client = getSupabase();
-  if (!client) return { status: 503, message: 'Supabase authentication is not configured' };
-  try {
-    const { data, error } = await client.auth.getUser(token);
-    if (error || !data.user) return { status: 401, message: 'Invalid or expired Supabase access token' };
-    return { user: data.user };
-  } catch (error) {
-    return { status: 503, message: 'Supabase authentication could not be reached' };
-  }
-}
-
-async function requireSupabaseAuth(req, res, next) {
-  const match = (req.headers.authorization || '').match(/^Bearer\s+(\S+)$/i);
-  if (!match) return res.status(401).json({ success: false, error: 'Bearer token required' });
-  const verified = await verifySupabaseUser(match[1]);
-  if (!verified.user) return res.status(verified.status).json({ success: false, error: verified.message });
-  req.authUser = verified.user;
-  return next();
-}
-
 module.exports = requireAuth;
-module.exports.requireSupabaseAuth = requireSupabaseAuth;

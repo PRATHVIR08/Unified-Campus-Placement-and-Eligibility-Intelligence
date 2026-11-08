@@ -8,13 +8,14 @@
  * @returns {string}
  */
 function toCsv(rows, headers) {
-  if (!rows || !rows.length) return '';
-  const fields = headers || Object.keys(rows[0]);
-  const headerLine = fields.join(',');
-  const lines = rows.map((row) =>
-    fields.map((field) => JSON.stringify(row[field] ?? '')).join(',')
-  );
-  return [headerLine, ...lines].join('\n');
+  const fields = headers || (rows && rows.length ? Object.keys(rows[0]) : []);
+  const escape = (value) => {
+    const text = value == null ? '' : String(value);
+    return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+  };
+  const headerLine = fields.map(escape).join(',');
+  const lines = (rows || []).map((row) => fields.map((field) => escape(row[field])).join(','));
+  return [headerLine, ...lines].join('\r\n');
 }
 
 module.exports = {

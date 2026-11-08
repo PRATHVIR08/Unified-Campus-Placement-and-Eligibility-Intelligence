@@ -8,8 +8,18 @@ CREATE OR REPLACE VIEW view_department_placement_stats AS
 SELECT 
     s.department,
     COUNT(DISTINCT s.id) AS total_students,
-    COUNT(DISTINCT o.student_id) AS placed_students,
-    ROUND((COUNT(DISTINCT o.student_id)::NUMERIC / NULLIF(COUNT(DISTINCT s.id), 0)) * 100, 2) AS placement_percentage,
+    COUNT(DISTINCT s.id) FILTER (
+        WHERE EXISTS (
+            SELECT 1 FROM applications a
+            WHERE a.student_id = s.id AND a.status = 'accepted'
+        )
+    ) AS placed_students,
+    ROUND((COUNT(DISTINCT s.id) FILTER (
+        WHERE EXISTS (
+            SELECT 1 FROM applications a
+            WHERE a.student_id = s.id AND a.status = 'accepted'
+        )
+    )::NUMERIC / NULLIF(COUNT(DISTINCT s.id), 0)) * 100, 2) AS placement_percentage,
     ROUND(AVG(o.ctc_offered), 2) AS average_ctc,
     MAX(o.ctc_offered) AS highest_ctc
 FROM students s
@@ -26,7 +36,7 @@ SELECT
     COUNT(DISTINCT CASE WHEN a.status = 'shortlisted' THEN a.id END) AS shortlisted_count,
     COUNT(DISTINCT CASE WHEN a.status = 'in_interview' THEN a.id END) AS interview_count,
     COUNT(DISTINCT o.id) AS offers_released,
-    COUNT(DISTINCT CASE WHEN o.is_accepted = TRUE THEN o.id END) AS offers_accepted
+    COUNT(DISTINCT CASE WHEN a.status = 'accepted' THEN o.id END) AS offers_accepted
 FROM job_drives jd
 JOIN companies c ON jd.company_id = c.id
 LEFT JOIN applications a ON jd.id = a.drive_id

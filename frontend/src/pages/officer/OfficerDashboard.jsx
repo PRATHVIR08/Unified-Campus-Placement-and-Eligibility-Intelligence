@@ -9,7 +9,7 @@ import { fetchAllDrives } from '../../api/drives';
 
 export default function OfficerDashboard() {
   const [summary, setSummary] = useState(null);
-  const [drives, setDrives]   = useState(null);
+  const [activeDriveCount, setActiveDriveCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState(null);
 
@@ -19,10 +19,11 @@ export default function OfficerDashboard() {
     try {
       const [s, d] = await Promise.all([
         fetchDepartmentSummary(),
-        fetchAllDrives(),
+        fetchAllDrives(new URLSearchParams({ active_only: 'true' })),
       ]);
       setSummary(s?.data || s);
-      setDrives(d?.data || d || []);
+      const driveData = d?.data || d || [];
+      setActiveDriveCount(d?.pagination?.total ?? driveData.length);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -32,7 +33,7 @@ export default function OfficerDashboard() {
 
   useEffect(() => { load(); }, [load]);
 
-  const totalDrives = drives?.length ?? 0;
+  const totalDrives = activeDriveCount;
   const totalPlaced = Array.isArray(summary)
     ? summary.reduce((acc, row) => acc + (row.placed || row.total_placed || 0), 0)
     : (summary?.totalPlaced ?? '—');
