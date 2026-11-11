@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import * as authService from '../services/authService';
-import { getCurrentUser } from '../api/auth';
+import { getCurrentUser, verifyPortal } from '../api/auth';
 
 const AuthContext = createContext(null);
 const VALID_ROLES = ['STUDENT', 'OFFICER', 'RECRUITER', 'ADMIN'];
@@ -95,10 +95,29 @@ export function AuthProvider({ children }) {
   }, [applySession]);
 
   const signIn = useCallback(async (credentials) => {
-    const result = await authService.signIn(credentials);
+    const { portal, ...signInCredentials } = credentials;
+    const result = await authService.signIn(signInCredentials);
     requiresExplicitSignIn.current = false;
-    await applySession(result.session);
-    return result;
+    try {
+      const accessToken = result.session?.access_token;
+      if (!accessToken) throw new Error('Sign in did not return a session');
+      if (portal) await verifyPortal(accessToken, portal);
+      await applySession(result.session);
+      return result;
+    } catch (signInError) {
+      try {
+        await authService.signOut();
+      } catch {
+        // Keep the portal-mismatch or auth error even if sign-out fails.
+      }
+      sessionVersion.current += 1;
+      setUser(null);
+      setRole(null);
+      setProfile(null);
+      setError(null);
+      setLoading(false);
+      throw signInError;
+    }
   }, [applySession]);
 
   const signUp = useCallback(async (details) => {

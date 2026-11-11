@@ -20,3 +20,11 @@ export async function getCurrentUser(accessToken) {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
 }
+
+export async function verifyPortal(accessToken, portal) {
+  return apiClient('/auth/verify-portal', {
+    method: 'POST',
+    body: JSON.stringify({ portal }),
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+}

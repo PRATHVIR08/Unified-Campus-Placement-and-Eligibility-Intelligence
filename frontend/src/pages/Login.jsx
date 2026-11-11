@@ -69,8 +69,60 @@ const FEATURES = [
   },
 ];
 
+const STUDENT_ICON = (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+    <path d="M22 10 12 5 2 10l10 5 10-5z" />
+    <path d="M6 12v5c0 1 3 3 6 3s6-2 6-3v-5" />
+  </svg>
+);
+
+const OFFICER_ICON = (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+    <rect x="2" y="7" width="20" height="14" rx="2" />
+    <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
+  </svg>
+);
+
+const PORTALS = {
+  student: {
+    id: 'student',
+    label: 'Student Login',
+    description: 'Access drives, eligibility, and your applications.',
+    submitLabel: 'Sign in as Student',
+    icon: STUDENT_ICON,
+  },
+  officer: {
+    id: 'officer',
+    label: 'Placement Officer Login',
+    description: 'Manage companies, drives, and placement operations.',
+    submitLabel: 'Sign in as Officer',
+    icon: OFFICER_ICON,
+  },
+};
+
+function PortalPicker({ onSelect }) {
+  return (
+    <div className="login-portal-grid" role="group" aria-label="Choose login type">
+      {Object.values(PORTALS).map((portal) => (
+        <button
+          key={portal.id}
+          type="button"
+          className="login-portal-option"
+          onClick={() => onSelect(portal.id)}
+        >
+          <span className="login-portal-icon">{portal.icon}</span>
+          <span className="login-portal-copy">
+            <strong>{portal.label}</strong>
+            <span>{portal.description}</span>
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 /* ---- Login form ------------------------------------------------- */
-function LoginForm({ registrationNotice }) {
+function LoginForm({ portal, onChangePortal, registrationNotice }) {
   const { signIn, error: authError } = useAuth();
   const [fields, setFields]     = useState({ email: '', password: '' });
   const [touched, setTouched]   = useState({});
@@ -108,7 +160,7 @@ function LoginForm({ registrationNotice }) {
     setLoading(true);
     setFormError('');
     try {
-      await signIn({ email: fields.email, password: fields.password });
+      await signIn({ email: fields.email, password: fields.password, portal });
     } catch (err) {
       setFormError(err.message || 'Login failed. Please try again.');
     } finally {
@@ -116,8 +168,39 @@ function LoginForm({ registrationNotice }) {
     }
   };
 
+  const selected = PORTALS[portal];
+
   return (
     <form onSubmit={handleSubmit} noValidate>
+      <div className="login-portal-banner">
+        <span className="login-portal-icon">{selected.icon}</span>
+        <div>
+          <p className="login-portal-banner-title">{selected.label}</p>
+          <p className="login-portal-banner-copy">{selected.description}</p>
+        </div>
+      </div>
+      <div className="login-portal-actions">
+        <button
+          type="button"
+          className="login-portal-switch"
+          onClick={() => {
+            setFormError('');
+            onChangePortal(null);
+          }}
+        >
+          All login options
+        </button>
+        <button
+          type="button"
+          className="login-portal-switch"
+          onClick={() => {
+            setFormError('');
+            onChangePortal(portal === 'student' ? 'officer' : 'student');
+          }}
+        >
+          Switch to {portal === 'student' ? 'Placement Officer Login' : 'Student Login'}
+        </button>
+      </div>
       {registrationNotice && (
         <div
           className={`alert ${registrationNotice.confirmationRequired ? 'alert-success' : 'alert-error'}`}
@@ -164,7 +247,7 @@ function LoginForm({ registrationNotice }) {
       )}
 
       <Button type="submit" variant="primary" fullWidth loading={loading}>
-        {loading ? 'Signing in…' : 'Sign in'}
+        {loading ? 'Signing in…' : selected.submitLabel}
       </Button>
     </form>
   );
@@ -310,10 +393,12 @@ function RegisterForm({ onRegistered }) {
 /* ---- Page -------------------------------------------------------- */
 export default function Login() {
   const [tab, setTab] = useState('login');
+  const [portal, setPortal] = useState(null);
   const [registrationNotice, setRegistrationNotice] = useState(null);
 
   const handleRegistrationComplete = (confirmationRequired) => {
     setRegistrationNotice({ confirmationRequired });
+    setPortal('student');
     setTab('login');
   };
 
@@ -388,7 +473,11 @@ export default function Login() {
             Campus Placement Intelligence
           </p>
           <h1 style={{ fontSize: 'var(--font-size-xl)', fontWeight: 'var(--font-weight-semibold)', letterSpacing: 'var(--letter-spacing-heading)' }}>
-            {tab === 'login' ? 'Sign in to your account' : 'Create a student account'}
+            {tab === 'register'
+              ? 'Create a student account'
+              : portal
+                ? PORTALS[portal].label
+                : 'Choose how you want to sign in'}
           </h1>
         </div>
 
@@ -429,9 +518,23 @@ export default function Login() {
             aria-labelledby={tab === 'login' ? 'tab-login' : 'tab-register'}
           >
             {tab === 'login'
-              ? <LoginForm registrationNotice={registrationNotice} />
+              ? portal
+                ? (
+                  <LoginForm
+                    key={portal}
+                    portal={portal}
+                    onChangePortal={setPortal}
+                    registrationNotice={portal === 'student' ? registrationNotice : null}
+                  />
+                )
+                : <PortalPicker onSelect={setPortal} />
               : <RegisterForm onRegistered={handleRegistrationComplete} />}
           </div>
+          {tab === 'login' && !portal && (
+            <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', marginTop: 'var(--space-4)', textAlign: 'center' }}>
+              Students and placement officers use separate dashboards. Choose the option that matches your role.
+            </p>
+          )}
         </div>
       </div>
 
@@ -441,6 +544,87 @@ export default function Login() {
           .login-left-panel { display: flex !important; }
           .login-mobile-brand h1 { display: none; }
         }
+        .login-portal-grid {
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-3);
+        }
+        .login-portal-option {
+          display: flex;
+          align-items: flex-start;
+          gap: var(--space-3);
+          width: 100%;
+          text-align: left;
+          padding: var(--space-4);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-input);
+          background: var(--color-elevated);
+          color: var(--color-text-primary);
+          cursor: pointer;
+          transition: border-color var(--transition-fast), background var(--transition-fast);
+        }
+        .login-portal-option:hover {
+          border-color: var(--color-border-hover);
+          background: var(--color-elevated-2);
+        }
+        .login-portal-icon {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 40px;
+          height: 40px;
+          flex-shrink: 0;
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-input);
+          color: var(--color-text-secondary);
+        }
+        .login-portal-copy {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+        .login-portal-copy strong {
+          font-size: var(--font-size-sm);
+          font-weight: var(--font-weight-semibold);
+        }
+        .login-portal-copy span {
+          font-size: var(--font-size-xs);
+          color: var(--color-text-muted);
+          line-height: 1.5;
+        }
+        .login-portal-banner {
+          display: flex;
+          align-items: flex-start;
+          gap: var(--space-3);
+          margin-bottom: var(--space-3);
+        }
+        .login-portal-banner-title {
+          font-size: var(--font-size-sm);
+          font-weight: var(--font-weight-semibold);
+          margin: 0;
+        }
+        .login-portal-banner-copy {
+          font-size: var(--font-size-xs);
+          color: var(--color-text-muted);
+          margin: 4px 0 0;
+          line-height: 1.5;
+        }
+        .login-portal-actions {
+          display: flex;
+          flex-wrap: wrap;
+          gap: var(--space-3);
+          margin-bottom: var(--space-4);
+        }
+        .login-portal-switch {
+          padding: 0;
+          border: none;
+          background: none;
+          color: var(--color-text-secondary);
+          font-size: var(--font-size-xs);
+          text-decoration: underline;
+          cursor: pointer;
+        }
+        .login-portal-switch:hover { color: var(--color-text-primary); }
       `}</style>
     </div>
   );

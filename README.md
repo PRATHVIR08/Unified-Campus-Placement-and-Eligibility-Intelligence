@@ -1,253 +1,247 @@
 # Unified Campus Placement and Eligibility Intelligence
 
-A centralized, intelligent placement automation system connecting students, placement officers, and recruiting companies. The system evaluates multi-criteria eligibility transparently, tracks interview rounds, and enforces offer compliance.
+A campus placement platform that connects students, placement officers, and recruiters in a single workflow. The system helps students discover eligible drives, officers manage job postings and interviews, and recruiters track application outcomes through a structured eligibility pipeline.
+
+## Overview
+
+This project combines:
+
+- a React frontend for student and officer workflows
+- an Express backend for business logic and role-based APIs
+- a PostgreSQL/Supabase data layer with migration-based schema changes
+- JWT-based access control, role enforcement, and eligibility evaluation rules
+
+The platform focuses on transparent eligibility checks, application workflow tracking, and reporting for placement operations.
+
+## Features
+
+- Student registration and authentication with Supabase
+- Role-based access for students, officers, admins, and recruiters
+- Academic profile management and drive eligibility evaluation
+- Drive creation, publishing, skills-based filtering, and application lifecycle management
+- Interview round tracking and offer acceptance workflows
+- Reporting views for placement summary and recruitment funnel insights
+- centralized backend validation and service-layer business rules
 
 ## Tech Stack
 
-- **Frontend:** React 18, Vite, React Router, CSS design system, Context API
-- **Backend:** Node.js, Express, PostgreSQL (`pg`)
-- **Authentication:** Supabase Auth access tokens verified by the backend; application roles are read from PostgreSQL `profiles`
-- **Database:** PostgreSQL / Supabase, SQL migrations, constraints, and reporting views
-- **Testing:** Jest and Supertest; API tests use mocks, with optional PostgreSQL report-view integration tests
+- Frontend: React + Vite + React Router
+- Styling: custom CSS, component-based UI, shared frontend state
+- Backend: Node.js + Express
+- Database: PostgreSQL / Supabase
+- Auth: Supabase authentication + JWT verification on the backend
+- Validation: Zod for request validation
+- Testing: Jest + Supertest
 
 ## Repository Structure
 
 ```text
-frontend/                 React application and Supabase client
-backend/                  Express API, services, middleware, Jest tests
-database/
-  schema.sql              Base PostgreSQL schema for a fresh database
-  migrations/             Ordered schema changes
-  seed.sql                Optional legacy sample records
-  seed_skills.sql         Optional skills catalog seed
-  setup.sh                Fresh-database bootstrap script
-docs/
-  API.md                  API paths, roles, payloads, and response details
-  postman_collection.json Requests for API testing
+backend/                 Express API, services, middleware, and tests
+frontend/                React application and client-side auth flow
+database/                PostgreSQL schema, migrations, and seed scripts
+docs/                    API docs, ER diagram, Postman collections, and notes
+README.md                Project overview and setup instructions
 ```
 
-## 1. Current Status
+## Current Project Status
 
-“Done” means the backend behavior and its primary interface are implemented. “Partial” means an API or backend feature exists but a dedicated end-user interface is not complete.
+The project is in active development, with core placement workflows implemented and a few administrative or UI flows still partial.
 
-| Feature | Status | Relevant files |
+| Area | Status | Notes |
 |---|---|---|
-| Supabase authentication and student registration | Done | [authService.js](./frontend/src/services/authService.js), [AuthContext.jsx](./frontend/src/context/AuthContext.jsx), [requireAuth.js](./backend/src/middleware/requireAuth.js) |
-| Roles and route permissions | Done | [requireRole.js](./backend/src/middleware/requireRole.js), [routes/](./backend/src/routes/), [002_supabase_alignment.sql](./database/migrations/002_supabase_alignment.sql) |
-| Student profile and academic data | Done | [students.routes.js](./backend/src/routes/students.routes.js), [students.service.js](./backend/src/services/students.service.js), [Profile.jsx](./frontend/src/pages/student/Profile.jsx) |
-| Company directory and company API | Partial — API supports CRUD; directory UI currently lists and adds companies | [companies.routes.js](./backend/src/routes/companies.routes.js), [companies.service.js](./backend/src/services/companies.service.js), [Companies.jsx](./frontend/src/pages/officer/Companies.jsx) |
-| Job drives, company links, statuses, and eligibility rules | Done | [jobDrives.routes.js](./backend/src/routes/jobDrives.routes.js), [jobDrives.service.js](./backend/src/services/jobDrives.service.js), [DriveManage.jsx](./frontend/src/pages/officer/DriveManage.jsx), [005_skills_filters.sql](./database/migrations/005_skills_filters.sql) |
-| Eligibility evaluation and readable reasons | Done | [eligibilityService.js](./backend/src/services/eligibilityService.js), [DriveList.jsx](./frontend/src/pages/student/DriveList.jsx), [DriveDetails.jsx](./frontend/src/pages/student/DriveDetails.jsx) |
-| Applications and status changes | Done | [applications.routes.js](./backend/src/routes/applications.routes.js), [applicationService.js](./backend/src/services/applicationService.js), [MyApplications.jsx](./frontend/src/pages/student/MyApplications.jsx) |
-| Interview rounds | Partial — API and transactional rules exist; dedicated management UI is not available yet | [interviewRounds.routes.js](./backend/src/routes/interviewRounds.routes.js), [interviewRounds.service.js](./backend/src/services/interviewRounds.service.js) |
-| Offers and acceptance policy | Partial — API and transactional rules exist; dedicated offer-management UI is not available yet | [offers.routes.js](./backend/src/routes/offers.routes.js), [offerService.js](./backend/src/services/offerService.js) |
-| Reports and dashboards | Done — PostgreSQL reports and officer dashboard are available | [reports.routes.js](./backend/src/routes/reports.routes.js), [reports.service.js](./backend/src/services/reports.service.js), [OfficerDashboard.jsx](./frontend/src/pages/officer/OfficerDashboard.jsx), [StudentDashboard.jsx](./frontend/src/pages/student/StudentDashboard.jsx) |
-| Drive filters, skills, and saved-filter API | Partial — drive filtering and skills work; saved-filter endpoints exist, but saved-filter UI is not available yet | [jobDrives.service.js](./backend/src/services/jobDrives.service.js), [studentFilters.routes.js](./backend/src/routes/studentFilters.routes.js), [DriveList.jsx](./frontend/src/pages/student/DriveList.jsx) |
-| Admin user search and role-management API | Partial — endpoints exist; admin user-management UI is not available yet | [admin.routes.js](./backend/src/routes/admin.routes.js), [admin.service.js](./backend/src/services/admin.service.js) |
-| RAG chatbot, Gemini client, and pgvector | Not started | Not available yet |
+| Student authentication and onboarding | Done | Registration and login flow are in place |
+| Officer/admin role enforcement | Done | Backend route checks are implemented |
+| Drive creation and eligibility rules | Done | Drives, skills, and evaluation logic are supported |
+| Student applications and status handling | Done | Application lifecycle is implemented |
+| Interview round processing | Partial | API logic exists; some management screens remain limited |
+| Offer management | Partial | Backend workflow exists; dedicated UI is still limited |
+| Reporting dashboards | Done | Reporting views and dashboard APIs are included |
+| Admin user-management UI | Partial | API exists, but some management screens remain incomplete |
 
-There are no intentionally stubbed endpoints in the current API route modules. Some workflows above are API-only and therefore do not yet have dedicated UI screens.
+## Prerequisites
 
-## 2. Setup and Run
+Before running the project, ensure you have:
 
-1. **Install Node.js and Git.** Install a current Node.js LTS release (Node 18 or newer) and Git. Confirm `node --version`, `npm --version`, and `git --version` work in a terminal.
-2. **Clone the repository.** Replace the placeholder with your repository URL:
+- Node.js 18 or newer
+- npm
+- Git
+- A PostgreSQL-compatible database or Supabase project
 
-   ```bash
-   git clone <repository-url>
-   cd Unified-Campus-Placement-and-Eligibility-Intelligence
-   ```
+## Getting Started
 
-3. **Install backend dependencies:**
+### 1. Clone the repository
 
-   ```bash
-   cd backend
-   npm install
-   ```
-
-4. **Install frontend dependencies** in a second terminal from the repository root:
-
-   ```bash
-   cd frontend
-   npm install
-   ```
-
-5. **Create a Supabase project.** In the Supabase dashboard, create a project and configure Authentication for your development URL. In Project Settings, copy the project URL and the server-side service-role key. The frontend uses only the project URL and a publishable/anon key.
-6. **Create environment files.** Copy `backend/.env.example` to `backend/.env`, and `frontend/.env.example` to `frontend/.env`. Put your own values in those local files; the variable names are:
-
-   `backend/.env`:
-
-   ```dotenv
-   PORT
-   NODE_ENV
-   DATABASE_URL
-   SUPABASE_URL
-   SUPABASE_SERVICE_KEY
-   FRONTEND_ORIGIN
-   MAX_ACCEPTED_OFFERS_PER_STUDENT
-   ```
-
-   `frontend/.env`:
-
-   ```dotenv
-   VITE_API_URL
-   VITE_SUPABASE_URL
-   VITE_SUPABASE_PUBLISHABLE_KEY
-   ```
-
-   Never commit `.env` files. **Never put `SUPABASE_SERVICE_KEY` or a service-role key in the frontend**; it belongs only in `backend/.env`. The backend accepts a `DATABASE_URL`; alternatively, it can use `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, and `DB_NAME`.
-7. **Apply the database schema and migrations.** For a new, empty database, use the order in [Database Migrations](#3-database-migrations), or run `database/setup.sh` in a shell that has `psql` installed and configured. For an existing Supabase database, use SQL Editor and apply only migrations that have not already run.
-8. **Start the backend** in a terminal:
-
-   ```bash
-   cd backend
-   npm run dev
-   ```
-
-9. **Start the frontend** in another terminal:
-
-   ```bash
-   cd frontend
-   npm run dev
-   ```
-
-10. **Open the app URL** printed by Vite (by default, `http://localhost:5173`). The backend defaults to `http://localhost:5000`; set `VITE_API_URL` to `http://localhost:5000/api` for local development.
-
-Public registration creates student accounts. To grant staff access, an existing database administrator must update the user’s `profiles.role` using the SQL in [Supabase SQL Snippets](#4-supabase-sql-snippets). Sign out and sign back in after a role change.
-
-## 3. Database Migrations
-
-For a **fresh database**, apply these files in order. In Supabase, open **SQL Editor**, choose **New query**, paste the contents of one file, and click **Run**. Wait for it to finish before applying the next file.
-
-| Order | File | Purpose |
-|---:|---|---|
-| 0 | [`database/schema.sql`](./database/schema.sql) | Creates the base enums and core tables: users, students, companies, drives, applications, interview rounds, participants, and offers. Fresh databases only. |
-| Optional | [`database/seed.sql`](./database/seed.sql) | Adds legacy/sample records for a local or demo database. Do not run unless you want those records. |
-| 1 | [`database/migrations/001_essential_api_fields.sql`](./database/migrations/001_essential_api_fields.sql) | Adds essential nullable academic/profile fields and allows Supabase-managed accounts without local password hashes. |
-| 2 | [`database/migrations/002_supabase_alignment.sql`](./database/migrations/002_supabase_alignment.sql) | Adds/backfills profiles and academic records, aligns drive/company fields and application status constraints, and adds relational constraints while retaining existing records. |
-| 3 | [`database/migrations/003_eligibility_rule_mandatory.sql`](./database/migrations/003_eligibility_rule_mandatory.sql) | Adds the `mandatory` flag to `eligibility_rules` and converts legacy drive criteria into rules. |
-| 4 | [`database/migrations/004_workflow_reports.sql`](./database/migrations/004_workflow_reports.sql) | Adds interview outcomes and offer status, then creates the four `v_*` reporting views. |
-| 5 | [`database/migrations/005_skills_filters.sql`](./database/migrations/005_skills_filters.sql) | Creates `skills`, `drive_skills`, and `student_filters`, including the drive-skill composite primary key and foreign keys. |
-| 6 | [`database/migrations/006_repair_drive_skills.sql`](./database/migrations/006_repair_drive_skills.sql) | Idempotently repairs a missing `skills` or `drive_skills` table when migration 005 was missed or partially applied; preserves existing rows and the same foreign keys and composite key. |
-| Optional | [`database/seed_skills.sql`](./database/seed_skills.sql) | Inserts a starter skills catalog; safe to rerun because it uses `ON CONFLICT DO NOTHING`. |
-| Optional | [`database/views.sql`](./database/views.sql) | Creates compatibility reporting views for older consumers. |
-
-For a new database, `database/setup.sh` applies the base schema, legacy seed, migrations 001–006, skills seed, and compatibility views. It requires `psql` and database connection settings; note that the script runs `seed.sql` and therefore adds its sample records. Do **not** run this full bootstrap against an existing database: `schema.sql` has enum creation statements that are not designed to be rerun, and the seed may add sample records.
-
-For an existing database where the Drive Manager reports `relation "drive_skills" does not exist`, apply migration 006 in Supabase SQL Editor (New query → paste the contents of `006_repair_drive_skills.sql` → Run). If migration 005 has never been applied, run 005 first, then 006. Both use `CREATE TABLE IF NOT EXISTS` and do not drop tables or delete data. Do not rerun the base schema or old migrations blindly. This project does not maintain a migration-history table; compare the deployed schema with the migration files and coordinate with the database owner before applying pending files in order. Never edit an old migration file to repair an installation; add a new, numbered migration instead.
-
-### Supabase “destructive operations” warning
-
-Supabase may show a warning when a query changes schema objects. The numbered migrations do not drop tables or delete existing table rows. Migration 002 does intentionally drop and recreate selected foreign-key constraints and drops a legacy view before replacing the related schema/view definitions; these operations affect database objects, not table contents. Read the migration and confirm you are applying it to the intended project. Back up important data first. Do not run the fresh-database schema or seed on a live/existing database.
-
-The optional [`database/queries/constraint_tests.sql`](./database/queries/constraint_tests.sql) intentionally attempts invalid inserts. It is for a disposable database only; do not run it on production.
-
-## 4. Supabase SQL Snippets
-
-Run these in Supabase **SQL Editor → New query → paste → Run**. Replace `<SUPABASE_AUTH_USER_UUID>` and `<DRIVE_UUID>` with real IDs; do not paste secrets into SQL.
-
-**Make a user an officer, administrator, or recruiter.** Use exactly one statement for the desired role; then log out and back in so the app reloads the profile role.
-
-```sql
-UPDATE profiles SET role = 'OFFICER' WHERE id = '<SUPABASE_AUTH_USER_UUID>';
--- Or: UPDATE profiles SET role = 'ADMIN' WHERE id = '<SUPABASE_AUTH_USER_UUID>';
--- Or: UPDATE profiles SET role = 'RECRUITER' WHERE id = '<SUPABASE_AUTH_USER_UUID>';
+```bash
+git clone <repository-url>
+cd Unified-Campus-Placement-and-Eligibility-Intelligence
 ```
 
-**Check existing user roles.** The app stores role names in uppercase in `profiles.role`.
+### 2. Install dependencies
 
-```sql
-SELECT id, email, full_name, role FROM profiles ORDER BY created_at DESC;
+Backend:
+
+```bash
+cd backend
+npm install
 ```
 
-**Count records in the main tables.** A zero count is valid if the application has not created records yet.
+Frontend:
 
-```sql
-SELECT 'profiles' AS table_name, COUNT(*) FROM profiles
-UNION ALL SELECT 'students', COUNT(*) FROM students
-UNION ALL SELECT 'companies', COUNT(*) FROM companies
-UNION ALL SELECT 'job_drives', COUNT(*) FROM job_drives
-UNION ALL SELECT 'eligibility_rules', COUNT(*) FROM eligibility_rules
-UNION ALL SELECT 'applications', COUNT(*) FROM applications
-UNION ALL SELECT 'interview_rounds', COUNT(*) FROM interview_rounds
-UNION ALL SELECT 'offers', COUNT(*) FROM offers
-UNION ALL SELECT 'skills', COUNT(*) FROM skills
-UNION ALL SELECT 'drive_skills', COUNT(*) FROM drive_skills
-UNION ALL SELECT 'student_filters', COUNT(*) FROM student_filters
-ORDER BY table_name;
+```bash
+cd frontend
+npm install
 ```
 
-**Check application workflow counts.** Status values are lowercase.
+### 3. Configure environment variables
 
-```sql
-SELECT status, COUNT(*) AS total
-FROM applications
-GROUP BY status
-ORDER BY status;
+Copy the sample env files and set your own values.
+
+Backend:
+
+```bash
+cp backend/.env.example backend/.env
 ```
 
-**Check that eligibility rules have the `mandatory` column.**
+Frontend:
 
-```sql
-SELECT column_name, data_type, is_nullable, column_default
-FROM information_schema.columns
-WHERE table_schema = 'public'
-  AND table_name = 'eligibility_rules'
-  AND column_name = 'mandatory';
+```bash
+cp frontend/.env.example frontend/.env
 ```
 
-**Publish a drive.** Replace the UUID; publishing means `status = 'active'`.
+Example backend variables:
 
-```sql
-UPDATE job_drives
-SET status = 'active'
-WHERE id = '<DRIVE_UUID>';
+```dotenv
+PORT=5000
+NODE_ENV=development
+DATABASE_URL=postgresql://user:password@host:5432/dbname
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_KEY=your-service-role-key
+FRONTEND_ORIGIN=http://localhost:5173
+MAX_ACCEPTED_OFFERS_PER_STUDENT=2
 ```
 
-**Test the report views.** These views are created by migration 004; the query returns their current database-backed results.
+Example frontend variables:
 
-```sql
-SELECT * FROM v_placement_summary;
-SELECT * FROM v_department_placement LIMIT 20;
-SELECT * FROM v_drive_funnel LIMIT 20;
-SELECT * FROM v_upcoming_deadlines LIMIT 20;
+```dotenv
+VITE_API_URL=http://localhost:5000/api
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=your-anon-key
 ```
 
-## 5. How to Test
+Important:
 
-### Automated backend tests
+- never commit `.env` files
+- keep `SUPABASE_SERVICE_KEY` only on the backend
+- do not expose service-role credentials in the browser
+
+### 4. Apply the database schema
+
+For a new database, run the database bootstrap in order using the migration files under `database/`.
+
+```bash
+cd database
+./setup.sh
+```
+
+If you are using Supabase, apply the files from `database/schema.sql` and `database/migrations/` in sequence using the SQL editor. Review the migration order before running them on an existing database.
+
+### 5. Run the app
+
+Start the backend:
+
+```bash
+cd backend
+npm run dev
+```
+
+Start the frontend in a separate terminal:
+
+```bash
+cd frontend
+npm run dev
+```
+
+The frontend usually runs on:
+
+```text
+http://localhost:5173
+```
+
+The backend typically runs on:
+
+```text
+http://localhost:5000
+```
+
+## Database and Migration Notes
+
+The database layer includes base schema definitions, migration scripts, and optional seed data for testing or demo usage.
+
+Key migration-related files:
+
+- `database/schema.sql`
+- `database/setup.sh`
+- `database/migrations/001_essential_api_fields.sql`
+- `database/migrations/002_supabase_alignment.sql`
+- `database/migrations/003_eligibility_rule_mandatory.sql`
+- `database/migrations/004_workflow_reports.sql`
+- `database/migrations/005_skills_filters.sql`
+- `database/migrations/006_repair_drive_skills.sql`
+
+Always back up production data before applying schema-changing queries. Do not run the fresh database setup script against an existing database without reviewing the migration sequence.
+
+## Testing
+
+Run backend tests:
 
 ```bash
 cd backend
 npm test
 ```
 
-The normal Jest/Supertest suite uses a mocked database and does not write to PostgreSQL. The report-view integration tests are optional and require a migrated, **disposable** PostgreSQL database:
+Optional database integration validation:
 
 ```bash
-# Set TEST_DATABASE_URL in your local shell to the disposable test database.
+cd backend
 npm run test:db
 ```
 
-### Manual end-to-end test
+This command is intended for a disposable PostgreSQL database and is not meant for production data.
 
-1. Open the app and register a student account using the registration form. Supabase Auth creates the account; public registration receives the `STUDENT` role.
-2. Sign in as the student, complete the academic profile (department, CGPA, graduation year, and backlogs), and confirm the student dashboard and drive list load.
-3. Promote a separate test account to `OFFICER` or `ADMIN` with the role SQL snippet above, then sign out and sign in again.
-4. As the officer/admin, add or select a company in Company Directory and create a drive in Drive Manager. Set its company, deadline, package, status, and eligibility requirements. Use `active` to publish; drafts are not shown to students.
-5. As the student, refresh Job Drives. The API only returns active drives whose deadlines have not passed. Check the eligibility badge and reasons; apply only when eligible.
-6. As the officer/admin, verify the application and reports. The reports dashboard uses PostgreSQL data. Interview and offer workflows are available through the API; dedicated management screens are **not available yet**.
-7. As the student, view personal applications in the UI and test personal offers with `GET /api/offers/me` in Postman; a dedicated offers screen is **not available yet**. Saved-filter persistence and admin user-management screens are also **not available yet**.
+## API Documentation
 
-### Postman
+Project API documentation is available in:
 
-Import [`docs/postman_collection.json`](./docs/postman_collection.json) into Postman. Set `baseUrl` to the backend API base URL (for local development, `http://localhost:5000/api`). Sign in to Supabase as each test role and set the matching `studentToken`, `officerToken`, `recruiterToken`, or `adminToken` collection variable to that account’s access token. Requests use `Authorization: Bearer <token>`; do not use a service-role key as a bearer token. Role changes require signing out and in again.
+- `docs/API.md`
+- `docs/postman_collection.json`
+- `docs/postman.json`
 
-### Troubleshooting
+These files cover request structures, route expectations, and role-based access patterns.
 
-| Message or symptom | What to check |
-|---|---|
-| `Supabase authentication is not configured` | Set `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` in `backend/.env`, restart the backend, and ensure the service key remains server-side only. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` in `frontend/.env` for frontend sign-in. |
+## Role Management
+
+To promote a user to an officer or admin role, update the `profiles.role` value in Supabase.
+
+Example:
+
+```sql
+UPDATE profiles SET role = 'OFFICER' WHERE id = '<SUPABASE_AUTH_USER_UUID>';
+```
+
+After changing a role, the user should sign out and sign back in so the updated token/profile state is refreshed.
+
+## Troubleshooting
+
+Common issues:
+
+- Authentication errors: verify `SUPABASE_URL` and `SUPABASE_SERVICE_KEY`
+- API connection issues: confirm `VITE_API_URL` is set correctly in the frontend
+- Database errors: verify the schema and migrations were applied in the right order
+- Missing role access: confirm the user profile has the required role and the app was refreshed
+
+## Contributing
+
+Contributions are welcome. Please keep changes focused, maintain existing project structure, and update relevant documentation if you modify workflows or environment variables.
 | `Access restricted to roles: student` | The endpoint requires `STUDENT`. Check `profiles.role`; staff-only endpoints require their listed staff role. After changing a role in SQL, log out and back in. |
 | HTTP 500 | Check backend terminal logs, `DATABASE_URL`, Supabase settings, network access, and whether all required migrations were applied. Do not paste credentials into issue reports. |
 | `column does not exist` | The database is behind the application code. Apply the pending migrations in order; don’t edit old migration files or guess a column name. |

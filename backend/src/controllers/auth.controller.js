@@ -1,6 +1,7 @@
 const db = require('../db/pool');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const AppError = require('../utils/AppError');
 
 function createToken(user) {
   if (!process.env.JWT_SECRET || /your_|change_in_production|placeholder/i.test(process.env.JWT_SECRET)) {
@@ -210,14 +211,52 @@ exports.login = async (req, res, next) => {
   }
 };
 
+const STUDENT_PORTAL_ROLES = ['STUDENT'];
+const OFFICER_PORTAL_ROLES = ['OFFICER', 'ADMIN', 'RECRUITER'];
+
+function portalMismatchMessage(portal, role) {
+  if (portal === 'officer') {
+    return 'This account is registered as a student. Please use Student Login.';
+  }
+  if (role === 'OFFICER' || role === 'ADMIN') {
+    return 'This account is a placement officer account. Please use Placement Officer Login.';
+  }
+  return 'This account cannot access Student Login. Please use Placement Officer Login.';
+}
+
+function currentUserPayload(user) {
+  return {
+    ...user,
+    role: String(user.role).toUpperCase(),
+  };
+}
+
 // GET /api/auth/me
 exports.getCurrentUser = async (req, res, next) => {
   return res.status(200).json({
     success: true,
-    user: {
-      ...req.user,
-      role: req.user.role.toUpperCase(),
-    },
+    user: currentUserPayload(req.user),
+  });
+};
+
+// POST /api/auth/verify-portal
+// Confirms the authenticated profile is allowed into the selected login portal.
+exports.verifyPortal = async (req, res, next) => {
+  const portal = String(req.body?.portal || '').trim().toLowerCase();
+  if (portal !== 'student' && portal !== 'officer') {
+    return next(new AppError(400, 'portal must be student or officer'));
+  }
+
+  const role = String(req.user.role || '').toUpperCase();
+  const allowed = portal === 'student' ? STUDENT_PORTAL_ROLES : OFFICER_PORTAL_ROLES;
+  if (!allowed.includes(role)) {
+    return next(new AppError(403, portalMismatchMessage(portal, role), { role, portal }));
+  }
+
+  return res.status(200).json({
+    success: true,
+    portal,
+    user: currentUserPayload(req.user),
   });
 };
 

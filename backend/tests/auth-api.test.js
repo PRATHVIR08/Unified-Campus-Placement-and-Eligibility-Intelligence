@@ -77,6 +77,47 @@ describe('Supabase-authenticated API', () => {
     expect(response.body.user).toMatchObject({ id: authUser.id, role: 'STUDENT', fullName: 'Test Student' });
   });
 
+  test('allows a student into the student portal and rejects officer portal', async () => {
+    const allowed = await request(app)
+      .post('/api/auth/verify-portal')
+      .set('Authorization', 'Bearer verified-access-token')
+      .send({ portal: 'student' });
+    expect(allowed.status).toBe(200);
+    expect(allowed.body.user.role).toBe('STUDENT');
+
+    const rejected = await request(app)
+      .post('/api/auth/verify-portal')
+      .set('Authorization', 'Bearer verified-access-token')
+      .send({ portal: 'officer' });
+    expect(rejected.status).toBe(403);
+    expect(rejected.body.error).toMatch(/student login/i);
+  });
+
+  test('allows an officer into the officer portal and rejects student portal', async () => {
+    profile = { ...profile, role: 'OFFICER', email: 'officer@example.edu' };
+    const allowed = await request(app)
+      .post('/api/auth/verify-portal')
+      .set('Authorization', 'Bearer verified-access-token')
+      .send({ portal: 'officer' });
+    expect(allowed.status).toBe(200);
+    expect(allowed.body.user.role).toBe('OFFICER');
+
+    const rejected = await request(app)
+      .post('/api/auth/verify-portal')
+      .set('Authorization', 'Bearer verified-access-token')
+      .send({ portal: 'student' });
+    expect(rejected.status).toBe(403);
+    expect(rejected.body.error).toMatch(/placement officer login/i);
+  });
+
+  test('rejects verify-portal without a valid portal', async () => {
+    const response = await request(app)
+      .post('/api/auth/verify-portal')
+      .set('Authorization', 'Bearer verified-access-token')
+      .send({ portal: 'admin' });
+    expect(response.status).toBe(400);
+  });
+
   test('returns 401 for a Supabase token that cannot be verified', async () => {
     mockGetUser.mockResolvedValue({ data: { user: null }, error: new Error('invalid') });
     const response = await request(app)
