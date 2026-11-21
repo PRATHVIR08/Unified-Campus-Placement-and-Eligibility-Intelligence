@@ -230,6 +230,70 @@ UPDATE profiles SET role = 'OFFICER' WHERE id = '<SUPABASE_AUTH_USER_UUID>';
 
 After changing a role, the user should sign out and sign back in so the updated token/profile state is refreshed.
 
+## Database Connection Troubleshooting
+
+### Direct connection vs Session Pooler
+
+Supabase provides two connection strings. Use the **Session Pooler** for local development:
+
+| Type | Host pattern | Port | When to use |
+|---|---|---|---|
+| **Direct** | `db.<ref>.supabase.co` | 5432 | Requires IPv6; migrations & admin tasks |
+| **Session Pooler** ✓ | `aws-0-<region>.pooler.supabase.com` | 5432 | Local dev, CI, most home/office networks |
+| Transaction Pooler | `aws-0-<region>.pooler.supabase.com` | 6543 | Stateless short-lived queries only; avoid for this project |
+
+Copy the Session Pooler string from **Supabase Dashboard → Settings → Database → Connection string → Session mode**.
+
+```dotenv
+# backend/.env — Session Pooler (recommended)
+DATABASE_URL=postgresql://postgres.PROJECT_REF:PASSWORD@aws-0-REGION.pooler.supabase.com:5432/postgres
+```
+
+### IPv6 note
+
+The direct host (`db.<ref>.supabase.co`) resolves to an IPv6 address only. If your network has no IPv6 support (most home routers, campus Wi-Fi, some VPNs), every connection attempt will fail with:
+
+```
+connect ETIMEDOUT <IPv6 address>:5432
+```
+
+**Solution:** switch `DATABASE_URL` to the Session Pooler URL above.
+
+### URL-encoding special characters in the password
+
+If your Supabase database password contains special characters (`@`, `/`, `:`, `?`, `#`, `%`, `+`, space), they must be percent-encoded in the URL:
+
+| Character | Encoded |
+|---|---|
+| `@` | `%40` |
+| `#` | `%23` |
+| `%` | `%25` |
+| `:` | `%3A` |
+| `/` | `%2F` |
+| `+` | `%2B` |
+| space | `%20` |
+
+Example — password `p@ss#word` becomes `p%40ss%23word` in the URL.
+
+### How to test connectivity with a phone hotspot
+
+If you are unsure whether your network has IPv6:
+
+1. Enable your phone's personal hotspot (mobile data provides dual-stack IPv4+IPv6 on most carriers).
+2. Connect your laptop to the hotspot.
+3. Start the backend (`npm --prefix backend run dev`).
+4. Watch the startup log for `✓ Database connection verified` or the ETIMEDOUT hint.
+
+If the direct host works on the hotspot but not on your regular network, your regular network lacks IPv6 — switch to the pooler URL permanently.
+
+### Quick checklist
+
+- [ ] `DATABASE_URL` in `backend/.env` uses the Session Pooler host, not the direct host.
+- [ ] Special characters in the password are percent-encoded.
+- [ ] `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` are set correctly.
+- [ ] Backend startup log shows `✓ Database connection verified`.
+- [ ] `GET /api/health` returns `{ "success": true }`.
+
 ## Troubleshooting
 
 Common issues:

@@ -55,6 +55,34 @@ Recruiters are assigned as `owner_id` when creating a company and may mutate
 only companies they own. Ownership is checked in the service layer. Deleting a
 company referenced by a drive is rejected by the database foreign key.
 
+## Placement chatbot
+
+### POST `/chatbot/ask`
+
+Student, officer, and admin roles may ask a placement question. Gemini is
+called only by the backend. The optional `companyId` or `driveId` limits
+placement-record context to that selection; eligibility rules and required
+skills are included when those tables are available.
+
+```json
+{
+  "message": "What skills should I build for this role?",
+  "companyId": "00000000-0000-0000-0000-000000000000",
+  "history": [
+    { "role": "user", "text": "Tell me about the role." },
+    { "role": "assistant", "text": "I can help with placement information." }
+  ]
+}
+```
+
+`message` is required (1–1000 trimmed characters), IDs must be UUIDs, and
+`history` is optional with at most 10 messages of up to 2000 characters each.
+Success returns `{ "answer": "..." }`. The service allows 15 requests per user
+per minute. It returns 400 for invalid input, 429 when rate limited, 502 when
+Gemini is unavailable, and 503 when Gemini is not configured or placement
+records cannot be read. Configure `GEMINI_API_KEY` and optionally
+`GEMINI_MODEL` in `backend/.env`.
+
 ## Job drives and eligibility
 
 The canonical job-drive API is `/job-drives`. `/drives` remains mounted as a
@@ -264,6 +292,7 @@ token and a profile role loaded by the backend; token role metadata is ignored.
 | `POST /api/companies` | Officer, admin, recruiter | Company fields (`name` required) | 201 company | 400, 401, 403, 409 |
 | `PUT /api/companies/:id` | Officer, admin, recruiter | Partial company fields | Updated company | 400, 401, 403, 404, 409 |
 | `DELETE /api/companies/:id` | Officer, admin, recruiter | UUID | 204 | 400, 401, 403, 404, 409 |
+| `POST /api/chatbot/ask` | Student, officer, admin | `{message, companyId?, driveId?, history?}` | `{answer}` | 400, 401, 403, 429, 502, 503 |
 | `GET /api/job-drives` and `/api/drives` | Any authenticated | Existing filters plus `skills=python,sql`, `page`, `limit` | `{success,data,pagination}`; skills filter requires every requested skill | 400, 401 |
 | `GET /api/job-drives/:id` and `/api/drives/:id` | Any authenticated | UUID | Drive, company, eligibility rules, skills | 400, 401, 403, 404 |
 | `GET /api/job-drives/:id/eligibility` and `/api/drives/:id/eligibility` | Student | UUID | Eligibility result and reasons | 400, 401, 403, 404 |

@@ -1,12 +1,13 @@
 // App.jsx  [P1]
 // Root router — keeps all existing route paths intact.
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, getDashboardPath, useAuth } from './context/AuthContext';
 import { ToastProvider } from './components/Toast';
 import Spinner from './components/Spinner';
 import Sidebar from './components/Sidebar';
 import ProtectedRoute from './components/ProtectedRoute';
+import ChatbotButton from './components/Chatbot/ChatbotButton';
 
 // Pages — student
 import Login          from './pages/Login';
@@ -28,7 +29,7 @@ const STAFF = ['OFFICER', 'ADMIN'];
 /* ---- Authenticated app layout ----------------------------------- */
 function AuthenticatedLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { role } = useAuth();
+  const { role, user } = useAuth();
 
   return (
     <div className="app-layout">
@@ -71,6 +72,7 @@ function AuthenticatedLayout() {
           </Routes>
         </div>
       </div>
+      {['STUDENT', 'OFFICER', 'ADMIN'].includes(role) && <ChatbotButton userId={user.id} />}
     </div>
   );
 }
@@ -78,6 +80,10 @@ function AuthenticatedLayout() {
 /* ---- Root app with auth gate ------------------------------------ */
 function AppContent() {
   const { user, loading } = useAuth();
+
+  useEffect(() => {
+    if (!loading && !user) sessionStorage.removeItem(`campus-placement-chatbot:${user?.id || ''}`);
+  }, [loading, user]);
 
   if (loading) {
     return (

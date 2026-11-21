@@ -17,6 +17,7 @@ const offersRoutes = require('./routes/offers.routes');
 const reportsRoutes = require('./routes/reports.routes');
 const skillsRoutes = require('./routes/skills.routes');
 const adminRoutes = require('./routes/admin.routes');
+const chatbotRoutes = require('./routes/chatbot.routes');
 
 const errorHandler = require('./middleware/errorHandler');
 const AppError = require('./utils/AppError');
@@ -71,6 +72,7 @@ app.use('/api/offers', offersRoutes);
 app.use('/api/reports', reportsRoutes);
 app.use('/api/skills', skillsRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/chatbot', chatbotRoutes);
 
 app.use((req, res, next) => next(new AppError(404, 'Route not found')));
 

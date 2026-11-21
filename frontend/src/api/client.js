@@ -52,7 +52,13 @@ export async function apiClient(endpoint, options = {}) {
   const data = await response.json().catch(() => null);
 
   if (!response.ok) {
-    throw new Error(data?.error || `Request failed with status ${response.status}`);
+    const message = data?.error || `Request failed with status ${response.status}`;
+    const err = new Error(message);
+    err.status = response.status;
+    // Flag 5xx so callers (e.g. AuthContext) can distinguish server errors from
+    // auth errors (401/403) and avoid silently clearing the session.
+    if (response.status >= 500) err.isServerUnavailable = true;
+    throw err;
   }
 
   return data;

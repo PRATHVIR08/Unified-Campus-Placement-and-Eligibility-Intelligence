@@ -10,6 +10,7 @@
     "test:db": "jest --runInBand tests/report-views.integration.test.js"
   },
   "dependencies": {
+    "@google/genai": "^3.6.1",
     "@supabase/supabase-js": "^2.118.0",
     "bcrypt": "^5.1.1",
     "cors": "^2.8.5",

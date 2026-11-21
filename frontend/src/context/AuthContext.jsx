@@ -38,7 +38,27 @@ export function AuthProvider({ children }) {
     setError(null);
     try {
       if (!session.access_token) throw new Error('Supabase session has no access token');
-      const response = await getCurrentUser(session.access_token);
+
+      let response;
+      try {
+        response = await getCurrentUser(session.access_token);
+      } catch (fetchError) {
+        if (version !== sessionVersion.current) return;
+        // A network error (TypeError) or a 5xx from the backend means the
+        // server is unreachable / the DB is down — do NOT clear the session
+        // or redirect to /login; show a recoverable error message instead.
+        const isServerError =
+          fetchError instanceof TypeError || // fetch() network failure
+          fetchError.isServerUnavailable === true || // set by apiClient for 5xx
+          /5\d\d|unavailable|unreachable|not reachable|backend/i.test(fetchError.message || '');
+        if (isServerError) {
+          setLoading(false);
+          setError(Object.assign(fetchError, { isServerUnavailable: true }));
+          return; // keep user/role/profile as-is (null on first load)
+        }
+        throw fetchError; // 401 / 403 / bad response — treat as real auth error
+      }
+
       if (version !== sessionVersion.current) return;
 
       const backendProfile = response.user;
