@@ -96,13 +96,19 @@ const offerStatusSchema = z.object({
 }).strict();
 
 const studentFilterCreateSchema = z.object({
-  name: z.string().trim().min(1).max(100),
-  filter_json: z.record(z.string(), z.unknown()),
-}).strict();
+  name: z.string().trim().min(1).max(40),
+  criteria: z.record(z.string(), z.unknown()).optional(),
+  filter_json: z.record(z.string(), z.unknown()).optional(),
+  is_default: z.boolean().optional(),
+}).strict().refine((value) => value.criteria !== undefined || value.filter_json !== undefined, {
+  message: 'criteria or filter_json is required',
+});
 
 const studentFilterUpdateSchema = z.object({
-  name: z.string().trim().min(1).max(100).optional(),
+  name: z.string().trim().min(1).max(40).optional(),
+  criteria: z.record(z.string(), z.unknown()).optional(),
   filter_json: z.record(z.string(), z.unknown()).optional(),
+  is_default: z.boolean().optional(),
 }).strict().refine((value) => Object.keys(value).length > 0, {
   message: 'At least one filter field is required',
 });

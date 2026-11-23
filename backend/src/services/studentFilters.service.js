@@ -2,9 +2,9 @@ const db = require('../db/pool');
 const AppError = require('../utils/AppError');
 
 const ALLOWED_KEYS = new Set([
-  'role_type', 'roleType', 'location', 'work_mode', 'workMode',
-  'min_package', 'minPackage', 'q', 'keyword', 'active_only',
-  'eligible_only', 'eligibleOnly', 'skills', 'page', 'limit',
+  'role', 'role_type', 'location', 'workMode', 'work_mode',
+  'skills', 'skillMatch', 'minPackage', 'maxPackage', 'min_package', 'max_package',
+  'eligibleOnly', 'eligible_only', 'hideClosed', 'hide_closed', 'sort', 'page', 'limit',
 ]);
 
 function validateFilterJson(filter) {
@@ -13,7 +13,7 @@ function validateFilterJson(filter) {
   }
   for (const [key, value] of Object.entries(filter)) {
     if (!ALLOWED_KEYS.has(key)) throw new AppError(400, `Unsupported filter key: ${key}`);
-    if (['role_type', 'roleType', 'location', 'work_mode', 'workMode', 'q', 'keyword'].includes(key) &&
+    if (['role', 'role_type', 'location', 'work_mode', 'workMode', 'q', 'keyword'].includes(key) &&
         (typeof value !== 'string' || value.length > 200)) {
       throw new AppError(400, `${key} must be a string of at most 200 characters`);
     }
@@ -40,60 +40,126 @@ function validateFilterJson(filter) {
 
 async function list(studentId) {
   const result = await db.query(
-    `SELECT id, student_id, name, filter_json, created_at
+    `SELECT filter_id, student_id, name, COALESCE(criteria, filter_json) AS criteria,
+            is_default, created_at, updated_at
      FROM student_filters
      WHERE student_id = $1
-     ORDER BY created_at DESC, id`,
+     ORDER BY created_at DESC, filter_id`,
     [studentId]
   );
   return result.rows;
 }
 
 async function create(studentId, input) {
-  const filter = validateFilterJson(input.filter_json);
-  const result = await db.query(
-    `INSERT INTO student_filters (student_id, name, filter_json)
-     VALUES ($1, $2, $3::jsonb)
-     RETURNING id, student_id, name, filter_json, created_at`,
-    [studentId, input.name, JSON.stringify(filter)]
-  );
-  return result.rows[0];
+  if (typeof input.name !== 'string' || input.name.trim().length < 1 || input.name.trim().length > 40) {
+    throw new AppError(400, 'name must be between 1 and 40 characters');
+  }
+  const filter = validateFilterJson(input.criteria ?? input.filter_json);
+  return db.withTransaction(async (client) => {
+    const count = await client.query(
+      'SELECT COUNT(*)::INTEGER AS total FROM student_filters WHERE student_id = $1',
+      [studentId]
+    );
+    if (count.rows[0].total >= 10) throw new AppError(422, 'A student can save at most 10 filters');
+    if (input.is_default === true) {
+      await client.query(
+        'UPDATE student_filters SET is_default = false, updated_at = CURRENT_TIMESTAMP WHERE student_id = $1',
+        [studentId]
+      );
+    }
+    try {
+      const result = await client.query(
+        `INSERT INTO student_filters (student_id, name, criteria, filter_json, is_default)
+         VALUES ($1, $2, $3::jsonb, $3::jsonb, $4)
+         RETURNING filter_id, student_id, name, criteria, is_default, created_at, updated_at`,
+        [studentId, input.name.trim(), JSON.stringify(filter), input.is_default === true]
+      );
+      return result.rows[0];
+    } catch (error) {
+      if (error.code === '23505') throw new AppError(409, 'A saved filter with this name already exists');
+      throw error;
+    }
+  });
 }
 
 async function update(studentId, filterId, input) {
+  if (input.name !== undefined && (typeof input.name !== 'string' || input.name.trim().length < 1 || input.name.trim().length > 40)) {
+    throw new AppError(400, 'name must be between 1 and 40 characters');
+  }
+  if (input.criteria !== undefined) validateFilterJson(input.criteria);
   if (input.filter_json !== undefined) validateFilterJson(input.filter_json);
-  const values = [];
-  const assignments = [];
-  if (input.name !== undefined) {
-    values.push(input.name);
-    assignments.push(`name = $${values.length}`);
-  }
-  if (input.filter_json !== undefined) {
-    values.push(JSON.stringify(input.filter_json));
-    assignments.push(`filter_json = $${values.length}::jsonb`);
-  }
-  values.push(filterId);
-  values.push(studentId);
-  const result = await db.query(
-    `UPDATE student_filters
-     SET ${assignments.join(', ')}
-     WHERE id = $${values.length - 1} AND student_id = $${values.length}
-     RETURNING id, student_id, name, filter_json, created_at`,
-    values
+  const existingCheck = await db.query(
+    'SELECT filter_id, student_id FROM student_filters WHERE filter_id = $1',
+    [filterId]
   );
-  if (result.rows.length) return result.rows[0];
-  const existing = await db.query('SELECT student_id FROM student_filters WHERE id = $1', [filterId]);
-  if (!existing.rows.length) throw new AppError(404, 'Saved filter not found');
-  throw new AppError(403, 'Students may modify only their own saved filters');
+  if (!existingCheck.rows.length) {
+    const legacyCheck = await db.query(
+      'SELECT student_id FROM student_filters WHERE filter_id = $1',
+      [filterId]
+    );
+    if (!legacyCheck.rows.length) throw new AppError(404, 'Saved filter not found');
+    if (legacyCheck.rows[0].student_id !== studentId) {
+      throw new AppError(403, 'Students may modify only their own saved filters');
+    }
+  } else if (existingCheck.rows[0].student_id !== studentId) {
+    throw new AppError(403, 'Students may modify only their own saved filters');
+  }
+  const withTransaction = db.withTransaction;
+  if (typeof withTransaction !== 'function') {
+    throw new AppError(500, 'Transaction support is unavailable');
+  }
+  return db.withTransaction(async (client) => {
+    const existing = await client.query(
+      'SELECT filter_id, student_id FROM student_filters WHERE filter_id = $1',
+      [filterId]
+    );
+    if (!existing.rows.length) throw new AppError(404, 'Saved filter not found');
+    if (existing.rows[0].student_id !== studentId) throw new AppError(403, 'Students may modify only their own saved filters');
+
+    if (input.is_default === true) {
+      await client.query(
+        'UPDATE student_filters SET is_default = false, updated_at = CURRENT_TIMESTAMP WHERE student_id = $1',
+        [studentId]
+      );
+    }
+    const values = [];
+    const assignments = [];
+    if (input.name !== undefined) { values.push(input.name.trim()); assignments.push(`name = $${values.length}`); }
+    const criteria = input.criteria ?? input.filter_json;
+    if (criteria !== undefined) {
+      values.push(JSON.stringify(criteria));
+      assignments.push(`criteria = $${values.length}::jsonb`);
+      assignments.push(`filter_json = $${values.length}::jsonb`);
+    }
+    if (input.is_default !== undefined) {
+      values.push(input.is_default === true);
+      assignments.push(`is_default = $${values.length}`);
+    }
+    assignments.push(`updated_at = CURRENT_TIMESTAMP`);
+    values.push(filterId);
+    values.push(studentId);
+    try {
+      const result = await client.query(
+        `UPDATE student_filters SET ${assignments.join(', ')}
+         WHERE filter_id = $${values.length - 1} AND student_id = $${values.length}
+         RETURNING filter_id, student_id, name, criteria, is_default, created_at, updated_at`,
+        values
+      );
+      return result.rows[0];
+    } catch (error) {
+      if (error.code === '23505') throw new AppError(409, 'A saved filter with this name already exists');
+      throw error;
+    }
+  });
 }
 
 async function remove(studentId, filterId) {
   const result = await db.query(
-    'DELETE FROM student_filters WHERE id = $1 AND student_id = $2 RETURNING id',
+    'DELETE FROM student_filters WHERE filter_id = $1 AND student_id = $2 RETURNING filter_id',
     [filterId, studentId]
   );
   if (result.rows.length) return;
-  const existing = await db.query('SELECT student_id FROM student_filters WHERE id = $1', [filterId]);
+  const existing = await db.query('SELECT student_id FROM student_filters WHERE filter_id = $1', [filterId]);
   if (!existing.rows.length) throw new AppError(404, 'Saved filter not found');
   throw new AppError(403, 'Students may delete only their own saved filters');
 }

@@ -7,6 +7,7 @@ import { TableSkeleton } from '../../components/Skeleton';
 import { fetchAllDrives, createDrive, updateDrive, deleteDrive, updateDriveStatus } from '../../api/drives';
 import { fetchCompanies } from '../../api/companies';
 import { useAuth } from '../../context/AuthContext';
+import { fetchSkills } from '../../api/skills';
 
 const PAGE_SIZE = 100;
 const EMPTY_FORM = {
@@ -23,6 +24,7 @@ const EMPTY_FORM = {
   maxActiveBacklogs: '0',
   departments: '',
   graduationYears: '',
+  skills: [],
 };
 
 function toLocalDateTime(value) {
@@ -62,6 +64,7 @@ function toForm(drive) {
     maxActiveBacklogs: getRuleValue(rules, 'backlogs', '<=') || '0',
     departments: getRuleValue(rules, 'department', 'IN') || getRuleValue(rules, 'department', '='),
     graduationYears: getRuleValue(rules, 'graduation_year', 'IN') || getRuleValue(rules, 'graduation_year', '='),
+    skills: (drive.skills || []).map((skill) => skill.id),
   };
 }
 
@@ -131,6 +134,7 @@ export default function DriveManage() {
   const { role } = useAuth();
   const [drives, setDrives] = useState([]);
   const [companies, setCompanies] = useState([]);
+  const [skills, setSkills] = useState([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -148,13 +152,15 @@ export default function DriveManage() {
     setLoading(true);
     setError('');
     try {
-      const [driveResult, companyResult] = await Promise.all([
+      const [driveResult, companyResult, skillResult] = await Promise.all([
         fetchAllDrives(new URLSearchParams({ page: String(page), limit: String(PAGE_SIZE) })),
         fetchCompanies(),
+        fetchSkills(),
       ]);
       setDrives(driveResult?.data || []);
       setTotal(driveResult?.pagination?.total ?? driveResult?.data?.length ?? 0);
       setCompanies(companyResult?.data || []);
+      setSkills(skillResult?.data || []);
     } catch (err) {
       setError(err.message || 'Could not load drives and companies.');
     } finally {
@@ -216,6 +222,7 @@ export default function DriveManage() {
         work_mode: form.work_mode.trim() || null,
         application_deadline: new Date(form.application_deadline).toISOString(),
         status: form.status,
+        skills: form.skills,
       };
       if (eligibilityChanged) {
         payload.eligibility_rules = buildEligibilityRules(form, existingRules, editingDrive ? initialEligibility : null);
@@ -296,11 +303,34 @@ export default function DriveManage() {
             <Input label="Package (LPA)" required type="number" min="0.01" step="0.01" value={form.package_lpa} onChange={(event) => setForm((current) => ({ ...current, package_lpa: event.target.value }))} />
             <Input label="Application deadline" required type="datetime-local" value={form.application_deadline} onChange={(event) => setForm((current) => ({ ...current, application_deadline: event.target.value }))} />
             <Input label="Location" value={form.location} onChange={(event) => setForm((current) => ({ ...current, location: event.target.value }))} />
-            <Input label="Work mode" value={form.work_mode} onChange={(event) => setForm((current) => ({ ...current, work_mode: event.target.value }))} placeholder="Onsite, hybrid, or remote" />
+            <div className="field">
+              <label className="field-label" htmlFor="drive-work-mode">Work mode</label>
+              <select id="drive-work-mode" className="input" value={form.work_mode} onChange={(event) => setForm((current) => ({ ...current, work_mode: event.target.value }))}>
+                <option value="">Select work mode</option>
+                <option value="ONSITE">Onsite</option>
+                <option value="REMOTE">Remote</option>
+                <option value="HYBRID">Hybrid</option>
+              </select>
+            </div>
           </div>
           <div className="field">
             <label className="field-label" htmlFor="drive-description">Role description</label>
             <textarea id="drive-description" className="input" rows="3" value={form.role_description} onChange={(event) => setForm((current) => ({ ...current, role_description: event.target.value }))} />
+          </div>
+          <div className="field">
+            <label className="field-label" htmlFor="drive-skills">Required skills</label>
+            <select
+              id="drive-skills"
+              className="input"
+              multiple
+              value={form.skills}
+              onChange={(event) => setForm((current) => ({
+                ...current,
+                skills: Array.from(event.target.selectedOptions, (option) => option.value),
+              }))}
+            >
+              {skills.map((skill) => <option key={skill.id} value={skill.id}>{skill.name}</option>)}
+            </select>
           </div>
           <h3 style={{ fontSize: 'var(--font-size-base)' }}>Eligibility requirements</h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 'var(--space-4)' }}>

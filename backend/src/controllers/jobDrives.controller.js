@@ -1,6 +1,7 @@
 const AppError = require('../utils/AppError');
 const jobDrivesService = require('../services/jobDrives.service');
 const applicationService = require('../services/applicationService');
+const driveFilterService = require('../services/driveFilterService');
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function parseFilters(query) {
@@ -68,8 +69,13 @@ function asyncHandler(handler) {
 }
 
 exports.getAllDrives = asyncHandler(async (req, res) => {
-  const result = await jobDrivesService.list(parseFilters(req.query), req.user);
+  const result = await driveFilterService.list(driveFilterService.validateFilters(req.query), req.user);
   return res.json({ success: true, ...result });
+});
+
+exports.getFilterOptions = asyncHandler(async (req, res) => {
+  const data = await driveFilterService.getFilterOptions();
+  return res.json({ success: true, data });
 });
 
 exports.getDriveById = asyncHandler(async (req, res) => {

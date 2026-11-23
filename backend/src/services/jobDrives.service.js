@@ -131,9 +131,16 @@ function validateDriveFields(input, create) {
       throw new AppError(400, `${field} must be a string or null`);
     }
   }
+  if (input.work_mode !== undefined && input.work_mode !== null) {
+    const workMode = input.work_mode.toUpperCase();
+    if (!['ONSITE', 'REMOTE', 'HYBRID'].includes(workMode)) {
+      throw new AppError(400, 'work_mode must be ONSITE, REMOTE, or HYBRID');
+    }
+    input.work_mode = workMode;
+  }
   if (input.package_lpa !== undefined &&
-      (input.package_lpa === null || !Number.isFinite(Number(input.package_lpa)) || Number(input.package_lpa) <= 0)) {
-    throw new AppError(400, 'package_lpa must be a positive number');
+      (input.package_lpa === null || !Number.isFinite(Number(input.package_lpa)) || Number(input.package_lpa) < 0)) {
+    throw new AppError(400, 'package_lpa must be a non-negative number');
   }
   if (input.status !== undefined && !DRIVE_STATUSES.has(input.status)) {
     throw new AppError(400, 'status must be draft, active, closed, or completed');

@@ -6,6 +6,7 @@ const requireAuth = require('../middleware/requireAuth');
 const requireRole = require('../middleware/requireRole');
 
 router.get('/', requireAuth, jobDrivesController.getAllDrives);
+router.get('/filter-options', requireAuth, jobDrivesController.getFilterOptions);
 router.post('/:id/applications', requireAuth, requireRole('STUDENT'), jobDrivesController.applyToDrive);
 router.get('/:id/applications', requireAuth, requireRole('OFFICER', 'ADMIN', 'RECRUITER'), jobDrivesController.getDriveApplications);
 router.get('/:id/eligibility', requireAuth, requireRole('STUDENT'), jobDrivesController.getEligibility);

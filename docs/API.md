@@ -284,8 +284,8 @@ token and a profile role loaded by the backend; token role metadata is ignored.
 | `GET /api/students/profile` | Student | None | Legacy profile aliases (`name`, `rollNumber`, etc.) | 401, 403, 404 |
 | `PUT /api/students/profile` | Student | Legacy academic profile fields | Updated legacy profile | 400, 401, 403, 404 |
 | `GET /api/students/me/filters` | Student | None | `{success,data:[saved filters]}` | 401, 403 |
-| `POST /api/students/me/filters` | Student | `{name,filter_json}` | 201 saved filter | 400, 401, 403 |
-| `PUT /api/students/me/filters/:id` | Student | `{name? ,filter_json?}` | Updated saved filter | 400, 401, 403, 404 |
+| `POST /api/students/me/filters` | Student | `{name,criteria,is_default?}` | 201 saved filter | 400, 401, 403, 409, 422 |
+| `PUT /api/students/me/filters/:id` | Student | `{name?,criteria?,is_default?}` | Updated saved filter | 400, 401, 403, 404, 409 |
 | `DELETE /api/students/me/filters/:id` | Student | None | 204 | 400, 401, 403, 404 |
 | `GET /api/companies` | Any authenticated | None | Managed companies | 401 |
 | `GET /api/companies/:id` | Any authenticated | UUID | Company data | 400, 401, 404 |
@@ -293,7 +293,8 @@ token and a profile role loaded by the backend; token role metadata is ignored.
 | `PUT /api/companies/:id` | Officer, admin, recruiter | Partial company fields | Updated company | 400, 401, 403, 404, 409 |
 | `DELETE /api/companies/:id` | Officer, admin, recruiter | UUID | 204 | 400, 401, 403, 404, 409 |
 | `POST /api/chatbot/ask` | Student, officer, admin | `{message, companyId?, driveId?, history?}` | `{answer}` | 400, 401, 403, 429, 502, 503 |
-| `GET /api/job-drives` and `/api/drives` | Any authenticated | Existing filters plus `skills=python,sql`, `page`, `limit` | `{success,data,pagination}`; skills filter requires every requested skill | 400, 401 |
+| `GET /api/job-drives/filter-options` and `/api/drives/filter-options` | Any authenticated | None | Distinct locations, role types, work modes, and package range | 401 |
+| `GET /api/job-drives` and `/api/drives` | Any authenticated | `role`, `skills`, `skillMatch=any\|all`, `minPackage`, `maxPackage`, `location`, `workMode`, `eligibleOnly`, `hideClosed`, `sort=deadline\|package\|newest`, `page`, `limit` | `{success,data,pagination}` | 400, 401 |
 | `GET /api/job-drives/:id` and `/api/drives/:id` | Any authenticated | UUID | Drive, company, eligibility rules, skills | 400, 401, 403, 404 |
 | `GET /api/job-drives/:id/eligibility` and `/api/drives/:id/eligibility` | Student | UUID | Eligibility result and reasons | 400, 401, 403, 404 |
 | `GET /api/job-drives/:id/applications` and `/api/drives/:id/applications` | Officer, admin, recruiter (own drive) | UUID | Applicant list | 400, 401, 403, 404 |
