@@ -2,7 +2,7 @@
 
 import { supabase } from '../lib/supabaseClient';
 
-const BASE_URL = (import.meta.env.VITE_API_URL || '/api').replace(/\/$/, '');
+const BASE_URL = '/api';
 
 export const AUTH_TOKEN_KEY = 'campus_placement_token';
 

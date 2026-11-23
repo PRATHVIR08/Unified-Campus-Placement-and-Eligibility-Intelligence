@@ -123,10 +123,11 @@ MAX_ACCEPTED_OFFERS_PER_STUDENT=2
 Example frontend variables:
 
 ```dotenv
-VITE_API_URL=http://localhost:5000/api
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=your-anon-key
 ```
+
+Frontend API requests always use relative `/api/...` paths. The Vite development proxy forwards them to the local backend; the Vercel rewrite forwards them to Render in production. `VITE_API_URL` is not used.
 
 Important:
 
@@ -172,6 +173,16 @@ The backend typically runs on:
 ```text
 http://localhost:5000
 ```
+
+## Deploy frontend with Render backend
+
+The [Vercel rewrite](./frontend/vercel.json) forwards frontend `/api/*` requests to the existing Render backend. In Vercel, make sure the project's **Root Directory** is `frontend` so it uses this configuration. The backend keeps its CORS allowlist; configure Render's `FRONTEND_ORIGIN` as `https://unified-campus-placement-and-eligib.vercel.app` (include other origins as comma-separated values only if they are still needed).
+
+1. In Vercel, open **Project Settings → Environment Variables** and delete the unused `VITE_API_URL` if configured. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`; keep their existing values.
+2. In Render, set `FRONTEND_ORIGIN` to the Vercel URL above so the backend CORS allowlist accepts browser-originated requests.
+3. Push the changes and redeploy the frontend. No backend code or database changes are needed.
+4. Verify `https://unified-campus-placement-and-eligib.vercel.app/api/health` returns the same JSON as `https://unified-campus-placement-and-eligibility.onrender.com/api/health`.
+5. In the browser Network panel, confirm API requests use the Vercel domain and `/api/...` paths.
 
 ## Database and Migration Notes
 
@@ -299,7 +310,7 @@ If the direct host works on the hotspot but not on your regular network, your re
 Common issues:
 
 - Authentication errors: verify `SUPABASE_URL` and `SUPABASE_SERVICE_KEY`
-- API connection issues: confirm `VITE_API_URL` is set correctly in the frontend
+- API connection issues: confirm the Vercel `/api/*` rewrite is deployed and the Render backend is available
 - Database errors: verify the schema and migrations were applied in the right order
 - Missing role access: confirm the user profile has the required role and the app was refreshed
 
